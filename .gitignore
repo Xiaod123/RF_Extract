@@ -45,3 +45,16 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
+
+
+#############
+## MATLAB
+#############
+*.asv
+*.mat
+
+#############
+## Vim
+#############
+*.swp
+*.*~
