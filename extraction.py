@@ -1,5 +1,7 @@
 import scipy as sp
 import numpy as np
+import numpy.linalg as la
+import scipy.linalg as sla
 import matplotlib as pl
 import skrf as rf # RF functions. To install this do "conda install -c scikit-rf  scikit-rf" from the command line if you have Anaconda Python installed, otherwise do "pip install scikit-rf"
 import math
@@ -51,3 +53,39 @@ def lumped_rlgc_from_s2p(s2p_filename, z0_probe=50):
 	C = 1/2/pi/freq * imag(Ycomm)
 
 	return (freq, R, L, G, C, Zdiff, Ycomm, net)
+
+
+def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename, z0_probe=50):
+
+	net_pad_L = rf.Network(pad_L_s2p_filename, z0=z0_probe) # d
+	net_pad_2L = rf.Network(pad_2L_s2p_filename, z0=z0_probe) # c
+	net_struct_L = rf.Network(structure_L_s2p_filename, z0=z0_probe) # e
+	net_struct_2L = rf.Network(structure_2L_s2p_filename, z0=z0_probe) # f
+
+	# ABCD matrices
+	TP_2L = net_pad_2L.a
+	TP_L = net_pad_L.a
+	TS_L = net_struct_L.a
+	TS_2L = net_struct_2L.a
+
+	TP_L_inv = la.inv(TP_L)
+
+	TL1 = []
+	TL2 = []
+
+	for idx, tlpi_mat in enumerate(TP_L_inv):
+		ts_2l_mat = TS_2L[idx]
+
+		TP_L_inner = np.dot( tlpi_mat, np.dot( ts_2l_mat, tlpi_mat ) ) # TLPI_MAT * TS_2L_MAT * TLPI_MAT matrix multiplication
+		TP1 = sla.sqrtm(TP_L_inner)
+		TP1_inv = la.inv(TP1)
+
+		TL1.append(TP1)
+		TL2_entry = np.dot( TP1_inv, np.dot( TS_2L, TP1_inv ) )
+		TL2.append( TL2_entry )
+
+	# This function DOES NOT EXIST! Need to do something about this
+	S_final = rf.a2s(TL2, z0_probe)
+
+	# [FIX] Not done yet with the rest of padDeembedding.m -- continue porting next
+
