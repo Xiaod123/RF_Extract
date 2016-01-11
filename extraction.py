@@ -13,9 +13,8 @@ def test():
 	structure_L_s2p_filename = "ltsv.s2p"
 	structure_2L_s2p_filename = "2ltsv.s2p"
 	
-	(freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L) = l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename)
-	write_s_db_deg(Sdb_L, Sdeg_L, freq, "S_params_L.csv")
-	write_s_db_deg(Sdb_2L, Sdeg_2L, freq, "S_params_2L.csv")
+	(freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L, net_L, net_2L) = l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename)
+
 
 def distributed_rlgc_from_abcd(length_m, freq, abcd_mat_array, z0_probe=50):
 	# length_m:	(m)	Length of structure being measured
@@ -40,24 +39,22 @@ def distributed_rlgc_from_abcd(length_m, freq, abcd_mat_array, z0_probe=50):
 	return( freq, R, L, G, C, gamma, attenuation, losstan, Zc )
 
 
-def lumped_rlgc_from_s2p(s2p_filename, z0_probe=50):
+def lumped_rlgc_from_Network(net, z0_probe=50):
 	# s2p_filename: (str)	s2p filename
 	# z0_probe:	(Ohms)	Impedance of network analyzer/probes. 50 Ohm default.
 
-	net = rf.Network(s2p_filename, z0=z0_probe)
-
 	freq = net.f
 
-	Z = s.z
-	Y = s.y
+	Z = net.z
+	Y = net.y
 
 	Zdiff = [zz[0,0] - zz[0,1] - zz[1,0] + zz[1,1] for zz in Z]
 	Ycomm = [yy[0,0] + yy[0,1] + yy[1,0] + yy[1,1] for yy in Y]
 
-	R = real(Zdiff)
-	L = 1/2/pi/freq * imag(Zdiff)
-	G = real(Ycomm)
-	C = 1/2/pi/freq * imag(Ycomm)
+	R = Zdiff.real
+	L = 1/2/math.pi/freq *(Zdiff.imag)
+	G = Ycomm.real
+	C = 1/2/math.pi/freq * (Ycomm.imag)
 
 	return (freq, R, L, G, C, Zdiff, Ycomm, net)
 
@@ -312,7 +309,7 @@ def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filenam
 	#write_s_db_deg(Sdb_final, Sdeg_final, freq, "nets_final.csv")
 	#write_s_db_deg(Sdb_final1, Sdeg_final1, freq, "nets_final1.csv")
 
-	return (freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L)
+	return (freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L, net_L, net_2L)
 
 
 def write_net_db_deg( net, filename):
