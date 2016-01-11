@@ -13,16 +13,19 @@ def test():
 	structure_L_s2p_filename = "ltsv.s2p"
 	structure_2L_s2p_filename = "2ltsv.s2p"
 	
+	length_m = 300e-6
+	
 	(freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L, net_L, net_2L) = l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename)
-
+	(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_abcd(length_m, freq, abcd_L)
+	write_rlgc(freq, R, L, G, C, "rlgc.csv")
 
 def distributed_rlgc_from_abcd(length_m, freq, abcd_mat_array, z0_probe=50):
 	# length_m:	(m)	Length of structure being measured
 	# s2p_filename: (str)	s2p filename
 	# z0_probe:	(Ohms)	Impedance of network analyzer/probes. 50 Ohm default.
 
-	d_vec = abcd_mat_array[:,1,1] # the "d" part of the abcd matrix (abcd(2,2))
-	b_vec = abcd_mat_array[:,0,1] # the "b" part of the abcd matrix
+	d_vec = abcd_mat_array[:][1][1] # the "d" part of the abcd matrix (abcd(2,2))
+	b_vec = abcd_mat_array[:][0][1] # the "b" part of the abcd matrix
 	gamma = [1/length_m*math.acosh(dd) for dd in d_vec]	# attenuation vector
 
 	Zc_part = [math.sinh( gg * length_m ) for gg in gamma]
@@ -36,7 +39,7 @@ def distributed_rlgc_from_abcd(length_m, freq, abcd_mat_array, z0_probe=50):
 
 	attenuation = 20*np.log10( abs(np.exp(-gamma*length_m)) )
 
-	return( freq, R, L, G, C, gamma, attenuation, losstan, Zc )
+	return ( freq, R, L, G, C, gamma, attenuation, losstan, Zc )
 
 
 def lumped_rlgc_from_Network(net, z0_probe=50):
@@ -267,11 +270,6 @@ def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filenam
 	net_struct_2L = rf.Network(structure_2L_s2p_filename, z0=z0_probe) # f
 
 	# ABCD matrices
-	#TP_2L = net_pad_2L.a
-	#TP_L = net_pad_L.a
-	#TS_L = net_struct_L.a
-	#TS_2L = net_struct_2L.a
-
 	TP_2L = sdb2abcd(net_pad_2L.s_db, net_pad_2L.s_deg)
 	TP_L = sdb2abcd(net_pad_L.s_db, net_pad_L.s_deg)
 	TS_L = sdb2abcd(net_struct_L.s_db, net_struct_L.s_deg)
@@ -281,8 +279,6 @@ def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filenam
 	TL1 = []
 	TL2 = []
 	
-	#TP_L_inv = la.inv(TP_L)
-	#for idx, tlpi_mat in enumerate(TP_L_inv):
 	for idx, tlp_mat in enumerate(TP_L):
 		tlpi_mat = la.inv(tlp_mat)
 		tp_2l_mat = TP_2L[idx]
@@ -306,8 +302,9 @@ def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filenam
 	(Sdb_2L, Sdeg_2L) = sri2sdb(Sri_2L)
 	freq = net_pad_L.f
 	
-	#write_s_db_deg(Sdb_final, Sdeg_final, freq, "nets_final.csv")
-	#write_s_db_deg(Sdb_final1, Sdeg_final1, freq, "nets_final1.csv")
+	net_L = rf.Network( f=freq*1e-9, s=Sri_L, z0=50)
+	net_2L = rf.Network( f=freq*1e-9, s=Sri_2L, z0=50)
+	
 
 	return (freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L, net_L, net_2L)
 
@@ -365,5 +362,16 @@ def write_s_db_deg( sdb, sdeg, freq, filename):
 		outfile.write(outstr)
 
 
-
+def write_rlgc(freq, R, L, G, C, filename):
+	outfile = open(filename, 'w')
+	
+	for idx, f in enumerate(freq):
+		r = R[idx]
+		l = L[idx]
+		g = G[idx]
+		c = C[idx]
+		
+		outstr = "{0:f},{1:f},{2:f},{3:f},{4:f}\n".format(f, r, l, g, c)
+		outfile.write(outstr)
+		
 
