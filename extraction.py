@@ -18,18 +18,46 @@ def test():
 	(freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L, net_L, net_2L) = l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename)
 	(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_abcd(length_m, freq, abcd_L)
 	write_rlgc(freq, R, L, G, C, "rlgc.csv")
+	write_rlgc(freq, gamma.real, gamma.imag, Zc.real, Zc.imag, "gamma.csv")
+	
+	(freq, R, L, G, C, Zdiff, Ycomm, net) = lumped_rlgc_from_Network(net_L)
+	write_rlgc(freq, R, L, G, C, "rlgc_lumped.csv")
 
 def distributed_rlgc_from_abcd(length_m, freq, abcd_mat_array, z0_probe=50):
 	# length_m:	(m)	Length of structure being measured
 	# s2p_filename: (str)	s2p filename
 	# z0_probe:	(Ohms)	Impedance of network analyzer/probes. 50 Ohm default.
 
-	d_vec = abcd_mat_array[:][1][1] # the "d" part of the abcd matrix (abcd(2,2))
-	b_vec = abcd_mat_array[:][0][1] # the "b" part of the abcd matrix
-	gamma = [1/length_m*math.acosh(dd) for dd in d_vec]	# attenuation vector
+	gamma = np.zeros( (len(abcd_mat_array)), dtype=complex)
+	Zc = np.zeros( (len(abcd_mat_array)), dtype=complex)
+	d_vec = np.zeros( (len(abcd_mat_array)), dtype=complex)
+	b_vec = np.zeros( (len(abcd_mat_array)), dtype=complex)
+	
+	#R = np.zeros( (len(abcd_mat_array)) )
+	#L = np.zeros( (len(abcd_mat_array)) )
+	#G = np.zeros( (len(abcd_mat_array)) )
+	#C = np.zeros( (len(abcd_mat_array)) )
+	#losstan = np.zeros( (len(abcd_mat_array)) )
+	#attenuation = np.zeros( (len(abcd_mat_array)) )
+	
+	for idx in range(len(abcd_mat_array)):
+		abcd = abcd_mat_array[idx]
+		
+		d_vec[idx] = abcd[1][1]
+		b_vec[idx] = abcd[0][1]
+		gamma[idx] = 1/length_m*np.arccosh(d_vec[idx])
+		Zc[idx] = np.sinh(gamma[idx] * length_m)/b_vec[idx]
+		#R[idx] = (gamma[idx] * Zc[idx]).real
+		#L[idx] = 1/2/math.pi/freq[idx] * ( (gamma[idx] * Zc[idx]).imag)
+		#G[idx] = (gamma[idx] / Zc[idx]).real
+		#C[idx] = 1/2/math.pi/freq[idx] * ((gamma[idx]/Zc[idx]).imag)
+		
+		#losstan[idx] = ( (gamma[idx]/Zc[idx]).real) / ( (gamma[idx]/Zc[idx]).imag)
+		#attenuation[idx] = 20*np.log10( abs(np.exp( -gamma[idx] * length_m )) )
+		
+		#print(gamma[idx] * Zc[idx])
+		#print(1/2/math.pi/freq[idx] * ( (gamma[idx] * Zc[idx]).imag))
 
-	Zc_part = [math.sinh( gg * length_m ) for gg in gamma]
-	Zc = 1/b_vec * Zc_part
 
 	R = ( gamma * Zc).real
 	L = 1/2/math.pi/freq * ((gamma * Zc).imag )
@@ -51,8 +79,14 @@ def lumped_rlgc_from_Network(net, z0_probe=50):
 	Z = net.z
 	Y = net.y
 
-	Zdiff = [zz[0,0] - zz[0,1] - zz[1,0] + zz[1,1] for zz in Z]
-	Ycomm = [yy[0,0] + yy[0,1] + yy[1,0] + yy[1,1] for yy in Y]
+	Zdiff = np.zeros( (len(Z)), dtype=complex)
+	Ycomm = np.zeros( (len(Z)), dtype=complex)
+	for idx in range(len(Zdiff)):
+		zz = Z[idx]
+		yy = Y[idx]
+		
+		Zdiff[idx] = zz[0,0] - zz[0,1] - zz[1,0] + zz[1,1]
+		Ycomm[idx] = yy[0,0] + yy[0,1] + yy[1,0] + yy[1,1]
 
 	R = Zdiff.real
 	L = 1/2/math.pi/freq *(Zdiff.imag)
@@ -371,7 +405,7 @@ def write_rlgc(freq, R, L, G, C, filename):
 		g = G[idx]
 		c = C[idx]
 		
-		outstr = "{0:f},{1:f},{2:f},{3:f},{4:f}\n".format(f, r, l, g, c)
+		outstr = "{0:.8g},{1:.8g},{2:.8g},{3:.8g},{4:.8g}\n".format(f, r, l, g, c)
 		outfile.write(outstr)
 		
 
