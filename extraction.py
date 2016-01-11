@@ -296,21 +296,14 @@ def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filenam
 	S_final = abcd2s(TL1, z0_probe, z0_probe)
 	S_final1 = abcd2s(TL2, z0_probe, z0_probe)
 
-	net_final = rf.Network( f=net_pad_L.f*1e-9, s=S_final, z0=z0_probe)
-	net_final1 = rf.Network( f=net_pad_L.f*1e-9, s=S_final1, z0=z0_probe)
-	write_net_db_deg(net_final, "net_final.csv")
-	write_net_db_deg(net_final1, "net_final1.csv")
-
 	(Sdb_final, Sdeg_final) = sri2sdb(S_final)
 	(Sdb_final1, Sdeg_final1) = sri2sdb(S_final1)
 	freq = net_pad_L.f
-	write_s_db_deg(Sdb_final, Sdeg_final, freq, "nets_final.csv")
-	write_s_db_deg(Sdb_final1, Sdeg_final1, freq, "nets_final1.csv")
-	#net_final = Sdb_final
-	#net_final1 = Sdb_final1
+	
+	#write_s_db_deg(Sdb_final, Sdeg_final, freq, "nets_final.csv")
+	#write_s_db_deg(Sdb_final1, Sdeg_final1, freq, "nets_final1.csv")
 
-
-	return (net_final, net_final1, Sdb_final, Sdeg_final, Sdb_final1, Sdeg_final1)
+	return (freq, Sdb_final, Sdeg_final, Sdb_final1, Sdeg_final1)
 
 
 def write_net_db_deg( net, filename):
