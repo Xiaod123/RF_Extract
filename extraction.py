@@ -55,6 +55,159 @@ def lumped_rlgc_from_s2p(s2p_filename, z0_probe=50):
 	return (freq, R, L, G, C, Zdiff, Ycomm, net)
 
 
+def abcd2s(abcd_struct, Z01, Z02):
+	# convert ABCD matrix to S matrix in real/imag format
+
+	R01 = Z01.real
+	R02 = Z02.real
+	num_freqs = len(abcd_struct)
+	S = np.zeros( (num_freqs, 2, 2), dtype=complex )
+	for idx in range(len(abcd_struct)):
+		mat = abcd_struct[idx]
+		A = mat[0][0]
+		B = mat[0][1]
+		C = mat[1][0]
+		D = mat[1][1]
+
+		denom = (A*Z02 + B + C*Z01*Z02 + D*Z01)
+
+		S11 = ( A*Z02 + B - C*np.conj(Z01)*Z02 - D*np.conj(Z01) ) / denom
+		S12 = ( 2*(A*D - B*C)*np.sqrt(R01*R02) ) / denom
+		S21 = ( 2*np.sqrt(R01*R02) ) / denom
+		S22 = (-A*np.conj(Z02) + B - C*Z01*np.conj(Z02) + D*Z01 ) / denom
+
+		S[idx][0][0] = S11
+		S[idx][0][1] = S12
+		S[idx][1][0] = S21
+		S[idx][1][1] = S22
+
+
+	return S
+
+def sri2abcd(s_struct, Z01=50, Z02=50):
+	# Convert Sparams in Real/Imag format to ABCD matrix
+	R01 = Z01.real
+	R02 = Z02.real
+	num_freqs = len(s_struct)
+	abcd = np.zeros( (num_freqs, 2, 2), dtype=complex )
+	for idx in range(len(s_struct)):
+		mat = s_struct[idx]
+		S11 = mat[0][0]
+		S12 = mat[0][1]
+		S21 = mat[1][0]
+		S22 = mat[1][1]
+
+		denom = 2*S21*np.sqrt(R01*R02)
+		
+		
+		A = ( (np.conj(Z01) + S11*Z01)*(1-S22)+S12*S21*Z01 ) / denom
+		B = ( (np.conj(Z01) + S11*Z01)*(np.conj(Z02)+S22*Z02)-S12*S21*Z01*Z02 ) / denom
+		C = ( (1-S11)*(1-S22)-S12*S21 ) / denom
+		D = ( (1-S11)*(np.conj(Z02)+S22*Z02) + S12*S21*Z02 ) / denom
+
+		abcd[idx][0][0] = A
+		abcd[idx][0][1] = B
+		abcd[idx][1][0] = C
+		abcd[idx][1][1] = D
+
+	return abcd
+
+
+def sdb2sri(sdb_struct, sdeg_struct):
+	# convert DB/DEG to real/imag
+	num_freqs = len(sdb_struct)
+	Sri = np.zeros( (num_freqs, 2, 2), dtype=complex)
+
+	for idx in range(len(sdb_struct)):
+		db_mat = sdb_struct[idx]
+		S11_db = db_mat[0][0]
+		S12_db = db_mat[0][1]
+		S21_db = db_mat[1][0]
+		S22_db = db_mat[1][1]
+
+		deg_mat = sdeg_struct[idx]
+		S11_deg = deg_mat[0][0]
+		S12_deg = deg_mat[0][1]
+		S21_deg = deg_mat[1][0]
+		S22_deg = deg_mat[1][1]
+
+		S11 = 10**(S11_db/20) * np.complex( math.cos(S11_deg*math.pi/180), math.sin(S11_deg*math.pi/180) )
+		S12 = 10**(S12_db/20) * np.complex( math.cos(S12_deg*math.pi/180), math.sin(S12_deg*math.pi/180) )
+		S21 = 10**(S21_db/20) * np.complex( math.cos(S21_deg*math.pi/180), math.sin(S21_deg*math.pi/180) )
+		S22 = 10**(S22_db/20) * np.complex( math.cos(S22_deg*math.pi/180), math.sin(S22_deg*math.pi/180) )
+
+		Sri[idx][0][0] = S11
+		Sri[idx][0][1] = S12
+		Sri[idx][1][0] = S21
+		Sri[idx][1][1] = S22
+
+	return Sri
+
+
+
+def sdb2abcd(sdb_struct, sdeg_struct):
+
+	sri = sdb2sri(sdb_struct, sdeg_struct)
+	abcd = sri2abcd(sri)
+
+	return abcd
+	
+
+
+def sri2sdb(sri_struct):
+	# convert S params from Real/Imag to DB/Deg
+	num_freqs = len(sri_struct)
+	Sdb = np.zeros( (num_freqs, 2, 2))
+	Sdeg = np.zeros( (num_freqs, 2, 2))
+
+	for idx in range(len(sri_struct)):
+		ri_mat = sri_struct[idx]
+		S11_ri = ri_mat[0][0]
+		S12_ri = ri_mat[0][1]
+		S21_ri = ri_mat[1][0]
+		S22_ri = ri_mat[1][1]
+
+
+		S11_db = 20*np.log10( np.abs(S11_ri) )
+		S12_db = 20*np.log10( np.abs(S12_ri) )
+		S21_db = 20*np.log10( np.abs(S21_ri) )
+		S22_db = 20*np.log10( np.abs(S22_ri) )
+
+		S11_deg = np.arcsin( S11_ri.imag / np.abs(S11_ri) ) * 180/math.pi
+		S12_deg = np.arcsin( S12_ri.imag / np.abs(S12_ri) ) * 180/math.pi
+		S21_deg = np.arcsin( S21_ri.imag / np.abs(S21_ri) ) * 180/math.pi
+		S22_deg = np.arcsin( S22_ri.imag / np.abs(S22_ri) ) * 180/math.pi
+		
+		if ( S11_ri.real < 0 ) and (S11_ri.imag > 0):
+			S11_deg = 180 - S11_deg
+		if ( S12_ri.real < 0 ) and (S12_ri.imag > 0):
+			S12_deg = 180 - S12_deg
+		if ( S21_ri.real < 0 ) and (S21_ri.imag > 0):
+			S21_deg = 180 - S21_deg
+		if ( S22_ri.real < 0 ) and (S22_ri.imag > 0):
+			S22_deg = 180 - S22_deg
+		
+		#S11_deg = np.arctan( S11_ri.imag / S11_ri.real ) * 180/math.pi
+		#S12_deg = np.arctan( S12_ri.imag / S12_ri.real ) * 180/math.pi
+		#S21_deg = np.arctan( S21_ri.imag / S21_ri.real ) * 180/math.pi
+		#S22_deg = np.arctan( S22_ri.imag / S22_ri.real ) * 180/math.pi
+
+
+		Sdb[idx][0][0] = S11_db
+		Sdb[idx][0][1] = S12_db
+		Sdb[idx][1][0] = S21_db
+		Sdb[idx][1][1] = S22_db
+
+		Sdeg[idx][0][0] = S11_deg
+		Sdeg[idx][0][1] = S12_deg
+		Sdeg[idx][1][0] = S21_deg
+		Sdeg[idx][1][1] = S22_deg
+
+	return (Sdb, Sdeg)
+
+
+
+
 def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename, z0_probe=50):
 
 	net_pad_L = rf.Network(pad_L_s2p_filename, z0=z0_probe) # d
@@ -68,24 +221,103 @@ def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filenam
 	TS_L = net_struct_L.a
 	TS_2L = net_struct_2L.a
 
-	TP_L_inv = la.inv(TP_L)
+	#TP_2L = sdb2abcd(net_pad_2L.s_db, net_pad_2L.s_deg)
+	#TP_L = sdb2abcd(net_pad_L.s_db, net_pad_L.s_deg)
+	#TS_L = sdb2abcd(net_struct_L.s_db, net_struct_L.s_deg)
+	#TS_2L = sdb2abcd(net_struct_2L.s_db, net_struct_2L.s_deg)
+
 
 	TL1 = []
 	TL2 = []
-
-	for idx, tlpi_mat in enumerate(TP_L_inv):
+	
+	#TP_L_inv = la.inv(TP_L)
+	#for idx, tlpi_mat in enumerate(TP_L_inv):
+	for idx, tlp_mat in enumerate(TP_L):
+		tlpi_mat = la.inv(tlp_mat)
 		ts_2l_mat = TS_2L[idx]
-
-		TP_L_inner = np.dot( tlpi_mat, np.dot( ts_2l_mat, tlpi_mat ) ) # TLPI_MAT * TS_2L_MAT * TLPI_MAT matrix multiplication
+		
+		TP_L_inner_pre = np.dot( tlpi_mat, np.dot( ts_2l_mat, tlpi_mat ) ) # TLPI_MAT * TS_2L_MAT * TLPI_MAT matrix multiplication
+		TP_L_inner = la.inv(TP_L_inner_pre)
 		TP1 = sla.sqrtm(TP_L_inner)
-		TP1_inv = la.inv(TP1)
-
 		TL1.append(TP1)
-		TL2_entry = np.dot( TP1_inv, np.dot( TS_2L, TP1_inv ) )
+
+		TP1_inv = la.inv(TP1)
+		TS_2L_entry = TS_2L[idx]
+		TL2_entry = np.dot( TP1_inv, np.dot( TS_2L_entry, TP1_inv ) )
 		TL2.append( TL2_entry )
 
-	# This function DOES NOT EXIST! Need to do something about this
-	S_final = rf.a2s(TL2, z0_probe)
+	S_final = abcd2s(TL1, z0_probe, z0_probe)
+	S_final1 = abcd2s(TL2, z0_probe, z0_probe)
 
-	# [FIX] Not done yet with the rest of padDeembedding.m -- continue porting next
+	net_final = rf.Network( f=net_pad_L.f*1e-9, s=S_final, z0=z0_probe)
+	net_final1 = rf.Network( f=net_pad_L.f*1e-9, s=S_final1, z0=z0_probe)
+	write_net_db_deg(net_final, "net_final.csv")
+	write_net_db_deg(net_final1, "net_final1.csv")
+
+	(Sdb_final, Sdeg_final) = sri2sdb(S_final)
+	(Sdb_final1, Sdeg_final1) = sri2sdb(S_final1)
+	freq = net_pad_L.f
+	write_s_db_deg(Sdb_final, Sdeg_final, freq, "nets_final.csv")
+	write_s_db_deg(Sdb_final1, Sdeg_final1, freq, "nets_final1.csv")
+	net_final = Sdb_final
+	net_final1 = Sdb_final1
+
+
+	return (net_final, net_final1)
+
+
+def write_net_db_deg( net, filename):
+	outfile = open(filename,'w')
+
+	freq_vec = net.f
+	s_db_list = net.s_db
+	s_deg_list = net.s_deg
+
+	for idx in range(len(freq_vec)):
+		freq = freq_vec[idx]
+		s_db_mat = s_db_list[idx]
+		S11_db = s_db_mat[0][0]
+		S12_db = s_db_mat[0][1]
+		S21_db = s_db_mat[1][0]
+		S22_db = s_db_mat[1][1]
+
+		s_deg_mat = s_deg_list[idx]
+		S11_deg = s_deg_mat[0][0]
+		S12_deg = s_deg_mat[0][1]
+		S21_deg = s_deg_mat[1][0]
+		S22_deg = s_deg_mat[1][1]
+
+		outstr = "{0:.4g},{1:.4g},{2:.4g},{3:.4g},{4:.4g},{5:.4g},{6:.4g},{7:.4g},{8:.4g}\n".format( freq, S11_db, S11_deg, S12_db, S12_deg, S21_db, S21_deg, S22_db, S22_deg)
+
+		outfile.write(outstr)
+ 
+
+
+def write_s_db_deg( sdb, sdeg, freq, filename):
+	outfile = open(filename,'w')
+
+	freq_vec = freq
+	s_db_list = sdb
+	s_deg_list = sdeg
+
+	for idx in range(len(freq_vec)):
+		freq = freq_vec[idx]
+		s_db_mat = s_db_list[idx]
+		S11_db = s_db_mat[0][0]
+		S12_db = s_db_mat[0][1]
+		S21_db = s_db_mat[1][0]
+		S22_db = s_db_mat[1][1]
+
+		s_deg_mat = s_deg_list[idx]
+		S11_deg = s_deg_mat[0][0]
+		S12_deg = s_deg_mat[0][1]
+		S21_deg = s_deg_mat[1][0]
+		S22_deg = s_deg_mat[1][1]
+
+		outstr = "{0:.4g},{1:.4g},{2:.4g},{3:.4g},{4:.4g},{5:.4g},{6:.4g},{7:.4g},{8:.4g}\n".format( freq, S11_db, S11_deg, S12_db, S12_deg, S21_db, S21_deg, S22_db, S22_deg)
+
+		outfile.write(outstr)
+
+
+
 
