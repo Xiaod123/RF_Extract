@@ -293,17 +293,19 @@ def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filenam
 		TL2_entry = np.dot( TP1_inv, np.dot( TS_2L_entry, TP1_inv ) )
 		TL2.append( TL2_entry )
 
-	S_final = abcd2s(TL1, z0_probe, z0_probe)
-	S_final1 = abcd2s(TL2, z0_probe, z0_probe)
+	abcd_L = TL1
+	abcd_2L = TL2
+	Sri_L = abcd2s(TL1, z0_probe, z0_probe)
+	Sri_2L = abcd2s(TL2, z0_probe, z0_probe)
 
-	(Sdb_final, Sdeg_final) = sri2sdb(S_final)
-	(Sdb_final1, Sdeg_final1) = sri2sdb(S_final1)
+	(Sdb_L, Sdeg_L) = sri2sdb(Sri_L)
+	(Sdb_2L, Sdeg_2L) = sri2sdb(Sri_2L)
 	freq = net_pad_L.f
 	
 	#write_s_db_deg(Sdb_final, Sdeg_final, freq, "nets_final.csv")
 	#write_s_db_deg(Sdb_final1, Sdeg_final1, freq, "nets_final1.csv")
 
-	return (freq, Sdb_final, Sdeg_final, Sdb_final1, Sdeg_final1)
+	return (freq, Sri_L, Sri_2L, abcd_L, abcd_2L)
 
 
 def write_net_db_deg( net, filename):
