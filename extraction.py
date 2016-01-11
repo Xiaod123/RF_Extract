@@ -7,30 +7,37 @@ import skrf as rf # RF functions. To install this do "conda install -c scikit-rf
 import math
 
 
-def distributed_rlgc_from_s2p(length_m, s2p_filename, z0_probe=50):
+def test():
+	pad_L_s2p_filename = "lpad.s2p"
+	pad_2L_s2p_filename = "2lpad.s2p"
+	structure_L_s2p_filename = "ltsv.s2p"
+	structure_2L_s2p_filename = "2ltsv.s2p"
+	
+	(freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L) = l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename)
+	write_s_db_deg(Sdb_L, Sdeg_L, freq, "S_params_L.csv")
+	write_s_db_deg(Sdb_2L, Sdeg_2L, freq, "S_params_2L.csv")
+
+def distributed_rlgc_from_abcd(length_m, freq, abcd_mat_array, z0_probe=50):
 	# length_m:	(m)	Length of structure being measured
 	# s2p_filename: (str)	s2p filename
 	# z0_probe:	(Ohms)	Impedance of network analyzer/probes. 50 Ohm default.
 
-	net = rf.Network(s2p_filename, z0=z0_probe)
-
-	freq = net.f
-	d_vec = net.a[:,1,1] # the "d" part of the abcd matrix (abcd(2,2))
-	b_vec = net.a[:,0,1] # the "b" part of the abcd matrix
+	d_vec = abcd_mat_array[:,1,1] # the "d" part of the abcd matrix (abcd(2,2))
+	b_vec = abcd_mat_array[:,0,1] # the "b" part of the abcd matrix
 	gamma = [1/length_m*math.acosh(dd) for dd in d_vec]	# attenuation vector
 
 	Zc_part = [math.sinh( gg * length_m ) for gg in gamma]
 	Zc = 1/b_vec * Zc_part
 
-	R = real( gamma * Zc)
-	L = 1/2/math.pi/freq * imag(gamma * Zc)
-	G = real(gamma/Zc)
-	C = 1/2/pi/freq * imag(gamma/Zc)
-	losstan = real(gamma/Zc) / imag(gamma/Zc)
+	R = ( gamma * Zc).real
+	L = 1/2/math.pi/freq * ((gamma * Zc).imag )
+	G = (gamma/Zc).real
+	C = 1/2/math.pi/freq * (gamma/Zc).imag
+	losstan = (gamma/Zc).real / (gamma/Zc).imag
 
 	attenuation = 20*np.log10( abs(np.exp(-gamma*length_m)) )
 
-	return( freq, R, L, G, C, gamma, Zc, net )
+	return( freq, R, L, G, C, gamma, attenuation, losstan, Zc )
 
 
 def lumped_rlgc_from_s2p(s2p_filename, z0_probe=50):
@@ -305,7 +312,7 @@ def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filenam
 	#write_s_db_deg(Sdb_final, Sdeg_final, freq, "nets_final.csv")
 	#write_s_db_deg(Sdb_final1, Sdeg_final1, freq, "nets_final1.csv")
 
-	return (freq, Sri_L, Sri_2L, abcd_L, abcd_2L)
+	return (freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L)
 
 
 def write_net_db_deg( net, filename):
@@ -356,7 +363,7 @@ def write_s_db_deg( sdb, sdeg, freq, filename):
 		S21_deg = s_deg_mat[1][0]
 		S22_deg = s_deg_mat[1][1]
 
-		outstr = "{0:.4g},{1:.4g},{2:.4g},{3:.4g},{4:.4g},{5:.4g},{6:.4g},{7:.4g},{8:.4g}\n".format( freq, S11_db, S11_deg, S12_db, S12_deg, S21_db, S21_deg, S22_db, S22_deg)
+		outstr = "{0:.4g},{1:f},{2:f},{3:f},{4:f},{5:f},{6:f},{7:f},{8:f}\n".format( freq, S11_db, S11_deg, S12_db, S12_deg, S21_db, S21_deg, S22_db, S22_deg)
 
 		outfile.write(outstr)
 
