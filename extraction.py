@@ -84,6 +84,58 @@ def abcd2s(abcd_struct, Z01, Z02):
 
 	return S
 
+def abcd2s_alt(abcd_struct, Z01, Z02):
+	# convert ABCD matrix to S matrix in real/imag format
+
+	#R01 = Z01.real
+	#R02 = Z02.real
+	Z0 = Z01
+
+	num_freqs = len(abcd_struct)
+	S = np.zeros( (num_freqs, 2, 2), dtype=complex )
+	for idx in range(len(abcd_struct)):
+		mat = abcd_struct[idx]
+		A = mat[0][0]
+		B = mat[0][1]
+		C = mat[1][0]
+		D = mat[1][1]
+
+		denom = (A + B/Z0 + C*Z0 + D)
+
+		S11 = ( A + B/Z0 - C*Z0 - D ) / denom
+		S12 = ( 2*(A*D - B*C) ) / denom
+		S21 = ( 2 ) / denom
+		S22 = (-A + B/Z0 - C*Z0 + D ) / denom
+
+		S[idx][0][0] = S11
+		S[idx][0][1] = S12
+		S[idx][1][0] = S21
+		S[idx][1][1] = S22
+
+
+	return S
+	
+def abcd2s_alt2(abcd_struct, Z01, Z02):
+	# convert ABCD matrix to S matrix in real/imag format
+
+	#R01 = Z01.real
+	#R02 = Z02.real
+	#Z0 = Z01
+
+	num_freqs = len(abcd_struct)
+	S = np.zeros( (num_freqs, 2, 2), dtype=complex )
+	for idx in range(len(abcd_struct)):
+		mat = abcd_struct[idx]
+		S_mat = 1/mat
+
+		S[idx][0][0] = S_mat[0][0]
+		S[idx][0][1] = S_mat[0][1]
+		S[idx][1][0] = S_mat[1][0]
+		S[idx][1][1] = S_mat[1][1]
+
+
+	return S
+
 def sri2abcd(s_struct, Z01=50, Z02=50):
 	# Convert Sparams in Real/Imag format to ABCD matrix
 	R01 = Z01.real
@@ -216,15 +268,15 @@ def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filenam
 	net_struct_2L = rf.Network(structure_2L_s2p_filename, z0=z0_probe) # f
 
 	# ABCD matrices
-	TP_2L = net_pad_2L.a
-	TP_L = net_pad_L.a
-	TS_L = net_struct_L.a
-	TS_2L = net_struct_2L.a
+	#TP_2L = net_pad_2L.a
+	#TP_L = net_pad_L.a
+	#TS_L = net_struct_L.a
+	#TS_2L = net_struct_2L.a
 
-	#TP_2L = sdb2abcd(net_pad_2L.s_db, net_pad_2L.s_deg)
-	#TP_L = sdb2abcd(net_pad_L.s_db, net_pad_L.s_deg)
-	#TS_L = sdb2abcd(net_struct_L.s_db, net_struct_L.s_deg)
-	#TS_2L = sdb2abcd(net_struct_2L.s_db, net_struct_2L.s_deg)
+	TP_2L = sdb2abcd(net_pad_2L.s_db, net_pad_2L.s_deg)
+	TP_L = sdb2abcd(net_pad_L.s_db, net_pad_L.s_deg)
+	TS_L = sdb2abcd(net_struct_L.s_db, net_struct_L.s_deg)
+	TS_2L = sdb2abcd(net_struct_2L.s_db, net_struct_2L.s_deg)
 
 
 	TL1 = []
@@ -234,9 +286,9 @@ def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filenam
 	#for idx, tlpi_mat in enumerate(TP_L_inv):
 	for idx, tlp_mat in enumerate(TP_L):
 		tlpi_mat = la.inv(tlp_mat)
-		ts_2l_mat = TS_2L[idx]
+		tp_2l_mat = TP_2L[idx]
 		
-		TP_L_inner_pre = np.dot( tlpi_mat, np.dot( ts_2l_mat, tlpi_mat ) ) # TLPI_MAT * TS_2L_MAT * TLPI_MAT matrix multiplication
+		TP_L_inner_pre = np.dot( tlpi_mat, np.dot( tp_2l_mat, tlpi_mat ) ) # TLPI_MAT * TS_2L_MAT * TLPI_MAT matrix multiplication
 		TP_L_inner = la.inv(TP_L_inner_pre)
 		TP1 = sla.sqrtm(TP_L_inner)
 		TL1.append(TP1)
@@ -259,11 +311,11 @@ def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filenam
 	freq = net_pad_L.f
 	write_s_db_deg(Sdb_final, Sdeg_final, freq, "nets_final.csv")
 	write_s_db_deg(Sdb_final1, Sdeg_final1, freq, "nets_final1.csv")
-	net_final = Sdb_final
-	net_final1 = Sdb_final1
+	#net_final = Sdb_final
+	#net_final1 = Sdb_final1
 
 
-	return (net_final, net_final1)
+	return (net_final, net_final1, Sdb_final, Sdeg_final, Sdb_final1, Sdeg_final1)
 
 
 def write_net_db_deg( net, filename):
