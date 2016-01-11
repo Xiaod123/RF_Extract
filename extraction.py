@@ -230,20 +230,15 @@ def sri2sdb(sri_struct):
 		S21_deg = np.arcsin( S21_ri.imag / np.abs(S21_ri) ) * 180/math.pi
 		S22_deg = np.arcsin( S22_ri.imag / np.abs(S22_ri) ) * 180/math.pi
 		
-		if ( S11_ri.real < 0 ) and (S11_ri.imag > 0):
-			S11_deg = 180 - S11_deg
-		if ( S12_ri.real < 0 ) and (S12_ri.imag > 0):
-			S12_deg = 180 - S12_deg
-		if ( S21_ri.real < 0 ) and (S21_ri.imag > 0):
-			S21_deg = 180 - S21_deg
-		if ( S22_ri.real < 0 ) and (S22_ri.imag > 0):
-			S22_deg = 180 - S22_deg
+		#if ( S11_ri.real < 0 ) and (S11_ri.imag > 0):
+		#	S11_deg = 180 - S11_deg
+		#if ( S12_ri.real < 0 ) and (S12_ri.imag > 0):
+		#	S12_deg = 180 - S12_deg
+		#if ( S21_ri.real < 0 ) and (S21_ri.imag > 0):
+		#	S21_deg = 180 - S21_deg
+		#if ( S22_ri.real < 0 ) and (S22_ri.imag > 0):
+		#	S22_deg = 180 - S22_deg
 		
-		#S11_deg = np.arctan( S11_ri.imag / S11_ri.real ) * 180/math.pi
-		#S12_deg = np.arctan( S12_ri.imag / S12_ri.real ) * 180/math.pi
-		#S21_deg = np.arctan( S21_ri.imag / S21_ri.real ) * 180/math.pi
-		#S22_deg = np.arctan( S22_ri.imag / S22_ri.real ) * 180/math.pi
-
 
 		Sdb[idx][0][0] = S11_db
 		Sdb[idx][0][1] = S12_db
