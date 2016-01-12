@@ -63,3 +63,10 @@ Temporary Items
 ## Python
 #############
 *.pyc
+
+#############
+## Excel
+#############
+*.xls
+*.xlsx
+*.csv
