@@ -53,22 +53,21 @@ def distributed_rlgc_from_abcd(length_m, freq, abcd_mat_array, z0_probe=50):
 	
 	for idx in range(len(abcd_mat_array)):
 		abcd = abcd_mat_array[idx]
+		print(freq[idx])
 		
 		d_vec[idx] = abcd[1][1]
 		b_vec[idx] = abcd[1][0]
 		
 		gamma[idx] = 1/length_m*np.arccosh(d_vec[idx])
 		Zc[idx] = b_vec[idx]**(-1) * np.sinh(gamma[idx] * length_m)
+		
 		R[idx] = (gamma[idx] * Zc[idx]).real
-		L[idx] = 1/2/math.pi/freq[idx] * ( (gamma[idx] * Zc[idx]).imag)
+		L[idx] = 1/2/math.pi/freq[idx] * ( (gamma[idx]*Zc[idx]).imag)
 		G[idx] = (gamma[idx] / Zc[idx]).real
-		C[idx] = 1/2/math.pi/freq[idx] * ((gamma[idx]/Zc[idx]).imag)
+		C[idx] = 1/2/math.pi/freq[idx] * ( (gamma[idx]/Zc[idx]).imag)
 		
 		losstan[idx] = ( (gamma[idx]/Zc[idx]).real) / ( (gamma[idx]/Zc[idx]).imag)
 		attenuation[idx] = 20*np.log10( abs(np.exp( -gamma[idx] * length_m )) )
-		
-		#print(gamma[idx] * Zc[idx])
-		#print(1/2/math.pi/freq[idx] * ( (gamma[idx] * Zc[idx]).imag))
 
 
 #	R = ( gamma * Zc).real
@@ -117,7 +116,7 @@ def distributed_rlgc_from_sdb(length_m, freq, Sdb, Sdeg, z0_probe=50):
 		abcd = abcd_mat_array[idx]
 		
 		d_vec[idx] = abcd[1][1]
-		b_vec[idx] = abcd[0][1]
+		b_vec[idx] = abcd[1][0]
 		gamma[idx] = 1/length_m*np.arccosh(d_vec[idx])
 		Zc[idx] = np.sinh(gamma[idx] * length_m)/b_vec[idx]
 		#R[idx] = (gamma[idx] * Zc[idx]).real
