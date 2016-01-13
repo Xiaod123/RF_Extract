@@ -56,7 +56,7 @@ def distributed_rlgc_from_abcd(length_m, freq, abcd_mat_array, z0_probe=50):
 		print(freq[idx])
 		
 		d_vec[idx] = abcd[1][1]
-		b_vec[idx] = abcd[1][0]
+		b_vec[idx] = abcd[1][0] # this is actually the C from abcd
 		
 		gamma[idx] = 1/length_m*np.arccosh(d_vec[idx])
 		Zc[idx] = b_vec[idx]**(-1) * np.sinh(gamma[idx] * length_m)
@@ -116,7 +116,7 @@ def distributed_rlgc_from_sdb(length_m, freq, Sdb, Sdeg, z0_probe=50):
 		abcd = abcd_mat_array[idx]
 		
 		d_vec[idx] = abcd[1][1]
-		b_vec[idx] = abcd[1][0]
+		b_vec[idx] = abcd[1][0] # this is actually the C from abcd
 		gamma[idx] = 1/length_m*np.arccosh(d_vec[idx])
 		Zc[idx] = np.sinh(gamma[idx] * length_m)/b_vec[idx]
 		#R[idx] = (gamma[idx] * Zc[idx]).real
