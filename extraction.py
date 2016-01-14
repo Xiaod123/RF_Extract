@@ -2,18 +2,38 @@ import scipy as sp
 import numpy as np
 import numpy.linalg as la
 import scipy.linalg as sla
-import matplotlib as pl
+import matplotlib.pyplot as pl
 import skrf as rf # RF functions. To install this do "conda install -c scikit-rf  scikit-rf" from the command line if you have Anaconda Python installed, otherwise do "pip install scikit-rf"
 import math
+import glob
+import argparse
 
+
+def main():
+	parser = argparse.ArgumentParser()
+	parser.add_argument("pad_L_s2p_filename", help="Filename for L structure measurement to be used for pad extraction")
+	parser.add_argument("pad_2L_s2p_filename", help="Filename for 2L structure measurement to be used for pad extraction")
+	parser.add_argument("--z0_real", type=float, default=50, help="Real portion of probe impedance. Default is 50 Ohms")
+	parser.add_argument("--z0_imag", type=float, default=0, help="Imaginary portion of probe impedance. Default is 0 Ohms (Default impedance is 50 + 0j)")
+	args = parser.parse_args()
+	
+	z0_probe = complex(args.z0_real, args.z0_imag)
+	print("NOTE: Ignore the above warning about pyvisa (if any). It is unimportant for our purposes.")
+	extract_rlgc_all(args.pad_L_s2p_filename, args.pad_2L_s2p_filename, z0_probe)
+	
 
 def test():
-	pad_L_s2p_filename = "lpad.s2p"
-	pad_2L_s2p_filename = "2lpad.s2p"
-	structure_L_s2p_filename = "ltsv.s2p"
-	structure_2L_s2p_filename = "2ltsv.s2p"
+#	pad_L_s2p_filename = "lpad.s2p"
+#	pad_2L_s2p_filename = "2lpad.s2p"
+#	structure_L_s2p_filename = "ltsv.s2p"
+#	structure_2L_s2p_filename = "2ltsv.s2p"
 	
-	length_m = 300e-6
+	pad_L_s2p_filename = "50_3um_1.s2p"
+	pad_2L_s2p_filename = "100_3um_1.s2p"
+	structure_L_s2p_filename = "50_3um_2.s2p"
+	structure_2L_s2p_filename = "100_3um_2.s2p"
+	
+	length_m = 50e-6
 	
 	(freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L, net_L, net_2L) = l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename)
 	(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_abcd(length_m, freq, abcd_L)
@@ -31,8 +51,142 @@ def test():
 	
 	(freq, R, L, G, C, Zdiff, Ycomm, net) = lumped_rlgc_from_Network(net_L)
 	write_rlgc(freq, R, L, G, C, "rlgc_lumped.csv")
+	
+	
 
+def extract_rlgc_all(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0):
+	file_list = glob.glob("*.s2p")
+	extraction_files = [pad_L_s2p_filename, pad_2L_s2p_filename]
+	
+	for filename in file_list:
+		#if filename not in extraction_files:
+		filename_arr = filename.split("_")
+		trace_length_um = int(filename_arr[0])
+		length_m = trace_length_um * 1e-6
+		trace_width_name = filename_arr[1]
+		trace_width_um = int( trace_width_name[0:-2] ) # get rid of the "um" in the width section
+		
+		# Construct output filename for each input file
+		# Requires input files to be named as follows
+		# $LENGTH_$WIDTHum_$WHATEVER.s2p
+		# where $LENGTH is the structure length in microns
+		# $WIDTH is the structure width in microns
+		# and $WHATEVER can be anything
+		structure_string = "L{0:d}um_W{1:d}um.csv".format(trace_length_um, trace_width_um)
+		rlgc_filename = "rlgc_" + structure_string
+		structure_L_s2p_filename = filename
+		structure_2L_s2p_filename = filename # this one doesn't seem to matter? Weird
+		(freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L, net_L, net_2L) = l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename)
+		(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sdb_L, Sdeg_L)
+		write_rlgc(freq, R, L, G, C, rlgc_filename)
+		plot_rlgc(freq, R, L, G, C, structure_string)
+		plot_s_params(freq, Sdb_L, Sdeg_L, structure_string)
 
+			
+
+def plot_rlgc(freq, R, L, G, C, structure_string):
+	freq_ghz = freq/1e9
+	
+	pl.figure(1)
+	pl.clf()
+	ax1 = pl.subplot(4,1,1)
+	pl.plot(freq_ghz, R, "b", linewidth=2)
+	pl.xlabel("Frequency (GHz)")
+	#pl.ylabel("Resistance (Ohms)")
+	pl.ylabel("R (Ohms)")
+	ax1.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
+	
+	ax2 = pl.subplot(4,1,2)
+	pl.plot(freq_ghz, L, "b", linewidth=2)
+	pl.xlabel("Frequency (GHz)")
+	#pl.ylabel("Inductance (H)")
+	pl.ylabel("L (H)")
+	ax2.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
+	
+	ax3 = pl.subplot(4,1,3)
+	pl.plot(freq_ghz, G, "b", linewidth=2)
+	pl.xlabel("Frequency (GHz)")
+	#pl.ylabel("Conductance (S)")
+	pl.ylabel("G (S)")
+	ax3.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
+	
+	ax4 = pl.subplot(4,1,4)
+	pl.plot(freq_ghz, C, "b", linewidth=2)
+	pl.xlabel("Frequency (GHz)")
+	#pl.ylabel("Capacitance (F)")
+	pl.ylabel("C (F)")
+	ax4.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
+	
+	pl.savefig(structure_string + "_RLGC.pdf")
+	
+def plot_s_params(freq, Sdb, Sdeg, structure_string):
+	freq_ghz = freq/1e9
+	
+	S11_db = np.zeros( (len(Sdb)) )
+	S12_db = np.zeros( (len(Sdb)) )
+	S21_db = np.zeros( (len(Sdb)) )
+	S22_db = np.zeros( (len(Sdb)) )
+	
+	S11_deg = np.zeros( (len(Sdb)) )
+	S12_deg = np.zeros( (len(Sdb)) )
+	S21_deg = np.zeros( (len(Sdb)) )
+	S22_deg = np.zeros( (len(Sdb)) )
+	
+	for idx in range(len(Sdb)):
+		S11_db[idx] = Sdb[idx][0][0]
+		S12_db[idx] = Sdb[idx][0][1]
+		S21_db[idx] = Sdb[idx][1][0]
+		S22_db[idx] = Sdb[idx][1][1]
+		
+		S11_deg[idx] = Sdeg[idx][0][0]
+		S12_deg[idx] = Sdeg[idx][0][1]
+		S21_deg[idx] = Sdeg[idx][1][0]
+		S22_deg[idx] = Sdeg[idx][1][1]
+		
+	pl.figure(1)
+	pl.clf()
+	pl.subplot(2,1,1)
+	pl.hold(True)
+	pl.plot(freq_ghz, S11_db, 'b', linewidth=2, label="S11")
+	pl.plot(freq_ghz, S22_db, 'g', linewidth=2, label="S22")
+	pl.xlabel("Frequency (GHz)")
+	pl.ylabel("S Parameters (DB)")
+	pl.legend()
+	
+	pl.subplot(2,1,2)
+	pl.hold(True)
+	pl.plot(freq_ghz, S12_db, 'b', linewidth=2, label="S12")
+	pl.plot(freq_ghz, S21_db, 'g', linewidth=2, label="S21")
+	pl.xlabel("Frequency (GHz)")
+	pl.ylabel("S Parameters (DB)")
+	pl.legend()
+	
+	pl.savefig(structure_string + "_Sdb.pdf")
+	
+	pl.figure(2)
+	pl.clf()
+	pl.subplot(2,1,1)
+	pl.hold(True)
+	pl.plot(freq_ghz, S11_deg, 'b', linewidth=2, label="S11")
+	pl.plot(freq_ghz, S22_deg, 'g', linewidth=2, label="S22")
+	pl.xlabel("Frequency (GHz)")
+	pl.ylabel("S Parameter Phase (Degrees)")
+	pl.legend()
+	
+	pl.subplot(2,1,2)
+	pl.hold(True)
+	pl.plot(freq_ghz, S12_deg, 'b', linewidth=2, label="S12")
+	pl.plot(freq_ghz, S21_deg, 'g', linewidth=2, label="S21")
+	pl.xlabel("Frequency (GHz)")
+	pl.ylabel("S Parameter Phase (Degrees)")
+	pl.legend()
+	
+	pl.savefig(structure_string + "_Sdeg.pdf")
+	
+	
+	
+
+			
 
 def distributed_rlgc_from_abcd(length_m, freq, abcd_mat_array, z0_probe=50):
 	# length_m:	(m)	Length of structure being measured
@@ -53,7 +207,6 @@ def distributed_rlgc_from_abcd(length_m, freq, abcd_mat_array, z0_probe=50):
 	
 	for idx in range(len(abcd_mat_array)):
 		abcd = abcd_mat_array[idx]
-		print(freq[idx])
 		
 		d_vec[idx] = abcd[1][1]
 		b_vec[idx] = abcd[1][0] # this is actually the C from abcd
@@ -148,16 +301,14 @@ def distributed_rlgc_from_sri(length_m, freq, Sri, z0_probe=50):
 
 	gamma = np.zeros( (len(Sri)), dtype=complex)
 	Zc =    np.zeros( (len(Sri)), dtype=complex)
-	d_vec = np.zeros( (len(Sri)), dtype=complex)
-	b_vec = np.zeros( (len(Sri)), dtype=complex)
 	
 	
 	for idx in range(len(Sri)):
 		
 		S11 = Sri[idx][0][0]
-		S12 = Sri[idx][0][1]
+		#S12 = Sri[idx][0][1] # Not needed
 		S21 = Sri[idx][1][0]
-		S22 = Sri[idx][1][1]
+		#S22 = Sri[idx][1][1] # not needed
 		
 		K = np.sqrt( ((S11**2 - S21**2 + 1)**2 - (2*S11)**2)/(2*S21**2))
 		alpha = ( (1 - S11**2 + S21**2)/(2*S21) + K)**(-1)
@@ -415,13 +566,13 @@ def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filenam
 
 	net_pad_L = rf.Network(pad_L_s2p_filename, z0=z0_probe) # d
 	net_pad_2L = rf.Network(pad_2L_s2p_filename, z0=z0_probe) # c
-	net_struct_L = rf.Network(structure_L_s2p_filename, z0=z0_probe) # e
+	#net_struct_L = rf.Network(structure_L_s2p_filename, z0=z0_probe) # e # not needed
 	net_struct_2L = rf.Network(structure_2L_s2p_filename, z0=z0_probe) # f
 
 	# ABCD matrices
 	TP_2L = sdb2abcd(net_pad_2L.s_db, net_pad_2L.s_deg)
 	TP_L = sdb2abcd(net_pad_L.s_db, net_pad_L.s_deg)
-	TS_L = sdb2abcd(net_struct_L.s_db, net_struct_L.s_deg)
+	#TS_L = sdb2abcd(net_struct_L.s_db, net_struct_L.s_deg) # not needed
 	TS_2L = sdb2abcd(net_struct_2L.s_db, net_struct_2L.s_deg)
 
 
@@ -524,3 +675,5 @@ def write_rlgc(freq, R, L, G, C, filename):
 		outfile.write(outstr)
 		
 
+if (__name__ == "__main__"):
+	main()
