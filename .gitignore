@@ -70,3 +70,8 @@ Temporary Items
 *.xls
 *.xlsx
 *.csv
+
+#############
+## VNA
+#############
+*.s2p
