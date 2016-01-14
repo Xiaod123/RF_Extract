@@ -87,7 +87,7 @@ def extract_rlgc_all(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0):
 def plot_rlgc(freq, R, L, G, C, structure_string):
 	freq_ghz = freq/1e9
 	
-	pl.figure(1)
+	pl.figure(1, figsize=(9,13) )
 	pl.clf()
 	ax1 = pl.subplot(4,1,1)
 	pl.plot(freq_ghz, R, "b", linewidth=2)
