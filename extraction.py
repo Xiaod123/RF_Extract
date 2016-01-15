@@ -15,11 +15,12 @@ def main():
 	parser.add_argument("pad_2L_s2p_filename", help="Filename for 2L structure measurement to be used for pad extraction")
 	parser.add_argument("--z0_real", type=float, default=50, help="Real portion of probe impedance. Default is 50 Ohms")
 	parser.add_argument("--z0_imag", type=float, default=0, help="Imaginary portion of probe impedance. Default is 0 Ohms (Default impedance is 50 + 0j)")
+	parser.add_argument("--skip_plots", action="store_true", default=False, help="Skip plotting for faster data extraction")
 	args = parser.parse_args()
 	
 	z0_probe = complex(args.z0_real, args.z0_imag)
-	print("NOTE: Ignore the above warning about pyvisa (if any). It is unimportant for our purposes.")
-	extract_rlgc_all(args.pad_L_s2p_filename, args.pad_2L_s2p_filename, z0_probe)
+	print("NOTE: Ignore the above warning about pyvisa (if any). It is unimportant for our purposes.\n")
+	extract_rlgc_all(args.pad_L_s2p_filename, args.pad_2L_s2p_filename, z0_probe, args.skip_plots)
 	
 
 def test():
@@ -54,17 +55,24 @@ def test():
 	
 	
 
-def extract_rlgc_all(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0):
+def extract_rlgc_all(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, skip_plots=False):
 	file_list = glob.glob("*.s2p")
 	extraction_files = [pad_L_s2p_filename, pad_2L_s2p_filename]
 	
+	print("Pad Deembedding file (L):  {0:s}".format(pad_L_s2p_filename) )
+	print("Pad Deembedding file (2L): {0:s}".format(pad_2L_s2p_filename) )
+	print("Extracting RLGC...")
 	for filename in file_list:
+		
 		#if filename not in extraction_files:
 		filename_arr = filename.split("_")
 		trace_length_um = int(filename_arr[0])
 		length_m = trace_length_um * 1e-6
 		trace_width_name = filename_arr[1]
 		trace_width_um = int( trace_width_name[0:-2] ) # get rid of the "um" in the width section
+		data_final_arr = filename_arr[-1].split(".")
+		data_final_str = data_final_arr[0]
+		print("\tL: {0:d}um \t W: {1:d}um \t Sample: {2:s}".format(trace_length_um, trace_width_um, data_final_str) )
 		
 		# Construct output filename for each input file
 		# Requires input files to be named as follows
@@ -72,15 +80,17 @@ def extract_rlgc_all(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0):
 		# where $LENGTH is the structure length in microns
 		# $WIDTH is the structure width in microns
 		# and $WHATEVER can be anything
-		structure_string = "L{0:d}um_W{1:d}um.csv".format(trace_length_um, trace_width_um)
+		structure_string = "L{0:d}um_W{1:d}um_{2:s}.csv".format(trace_length_um, trace_width_um, data_final_str)
 		rlgc_filename = "rlgc_" + structure_string
 		structure_L_s2p_filename = filename
 		structure_2L_s2p_filename = filename # this one doesn't seem to matter? Weird
 		(freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L, net_L, net_2L) = l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename)
 		(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sdb_L, Sdeg_L)
 		write_rlgc(freq, R, L, G, C, rlgc_filename)
-		plot_rlgc(freq, R, L, G, C, structure_string)
-		plot_s_params(freq, Sdb_L, Sdeg_L, structure_string)
+		
+		if not skip_plots:
+			plot_rlgc(freq, R, L, G, C, structure_string)
+			plot_s_params(freq, Sdb_L, Sdeg_L, structure_string)
 
 			
 
@@ -269,7 +279,7 @@ def distributed_rlgc_from_sdb(length_m, freq, Sdb, Sdeg, z0_probe=50):
 		abcd = abcd_mat_array[idx]
 		
 		d_vec[idx] = abcd[1][1]
-		b_vec[idx] = abcd[1][0] # this is actually the C from abcd
+		b_vec[idx] = abcd[0][1] # this is actually the C from abcd
 		gamma[idx] = 1/length_m*np.arccosh(d_vec[idx])
 		Zc[idx] = np.sinh(gamma[idx] * length_m)/b_vec[idx]
 		#R[idx] = (gamma[idx] * Zc[idx]).real
