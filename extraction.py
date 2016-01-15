@@ -11,63 +11,44 @@ import argparse
 
 def main():
 	parser = argparse.ArgumentParser()
-	parser.add_argument("pad_L_s2p_filename", help="Filename for L structure measurement to be used for pad extraction")
-	parser.add_argument("pad_2L_s2p_filename", help="Filename for 2L structure measurement to be used for pad extraction")
+	parser.add_argument("pad_L_s2p_file", help="Filename for L structure measurement to be used for pad extraction")
+	parser.add_argument("pad_2L_s2p_file", help="Filename for 2L structure measurement to be used for pad extraction")
+	parser.add_argument("--struct_file", default="PARSE_ALL", help="Filename for structure to convert. If this argument is presented, ONLY this structure will be extracted")
 	parser.add_argument("--z0_real", type=float, default=50, help="Real portion of probe impedance. Default is 50 Ohms")
 	parser.add_argument("--z0_imag", type=float, default=0, help="Imaginary portion of probe impedance. Default is 0 Ohms (Default impedance is 50 + 0j)")
 	parser.add_argument("--skip_plots", action="store_true", default=False, help="Skip plotting for faster data extraction")
+	parser.add_argument("--method", default="distributed", choices=["distributed", "lumped", "distributed_abcd", "distributed_sri"], help="Type of RLGC extraction to perform. distributed (default) -- treats structure as transmission line and extracts from S in DB/DEG form. lumped -- treats structure as lumped element. distributed_abcd -- extracts from ABCD matrices. distributed_sri -- extracts from S in REAL/IMAG format.") 
 	args = parser.parse_args()
 	
 	z0_probe = complex(args.z0_real, args.z0_imag)
 	print("NOTE: Ignore the above warning about pyvisa (if any). It is unimportant for our purposes.\n")
-	extract_rlgc_all(args.pad_L_s2p_filename, args.pad_2L_s2p_filename, z0_probe, args.skip_plots)
 	
-
-def test():
-#	pad_L_s2p_filename = "lpad.s2p"
-#	pad_2L_s2p_filename = "2lpad.s2p"
-#	structure_L_s2p_filename = "ltsv.s2p"
-#	structure_2L_s2p_filename = "2ltsv.s2p"
+	extract_rlgc(args.pad_L_s2p_file, args.pad_2L_s2p_file, z0_probe, args.method, args.skip_plots, args.struct_file)
 	
-	pad_L_s2p_filename = "50_3um_1.s2p"
-	pad_2L_s2p_filename = "100_3um_1.s2p"
-	structure_L_s2p_filename = "50_3um_2.s2p"
-	structure_2L_s2p_filename = "100_3um_2.s2p"
-	
-	length_m = 50e-6
-	
-	(freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L, net_L, net_2L) = l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename)
-	(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_abcd(length_m, freq, abcd_L)
-	write_s_db_deg(Sdb_L, Sdeg_L, freq, "sdb_sdeg.csv")
-	write_rlgc(freq, R, L, G, C, "rlgc.csv")
-	write_rlgc(freq, gamma.real, gamma.imag, Zc.real, Zc.imag, "gamma.csv")
-	
-	(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sdb_L, Sdeg_L)
-	write_rlgc(freq, R, L, G, C, "rlgc2.csv")
-	write_rlgc(freq, gamma.real, gamma.imag, Zc.real, Zc.imag, "gamma2.csv")
-	
-	(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sri(length_m, freq, Sri_L)
-	write_rlgc(freq, R, L, G, C, "rlgc_sri.csv")
-	write_rlgc(freq, gamma.real, gamma.imag, Zc.real, Zc.imag, "gamma_sri.csv")
-	
-	(freq, R, L, G, C, Zdiff, Ycomm, net) = lumped_rlgc_from_Network(net_L)
-	write_rlgc(freq, R, L, G, C, "rlgc_lumped.csv")
 	
 	
 
-def extract_rlgc_all(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, skip_plots=False):
-	file_list = glob.glob("*.s2p")
-	extraction_files = [pad_L_s2p_filename, pad_2L_s2p_filename]
+def extract_rlgc(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, method="distributed", skip_plots=False, struct_L_s2p_filename="PARSE_ALL"):
+
+	if struct_L_s2p_filename == "PARSE_ALL":
+		file_list = glob.glob("*.s2p")
+	else:
+		file_list = [pad_L_s2p_filename, pad_2L_s2p_filename, struct_L_s2p_filename]
+	
 	
 	print("Pad Deembedding file (L):  {0:s}".format(pad_L_s2p_filename) )
 	print("Pad Deembedding file (2L): {0:s}".format(pad_2L_s2p_filename) )
-	print("Extracting RLGC...")
+	# Get pad deembedding parameters
+	(freq, abcd_pad, abcd_pad_inv, Sri_pad, Sdb_pad, Sdeg_pad, net_pad) = get_pad_abcd(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe)
+	
+	print("Extracting RLGC using {0:s} method...".format(method))
 	for filename in file_list:
 		
 		#if filename not in extraction_files:
 		filename_arr = filename.split("_")
 		trace_length_um = int(filename_arr[0])
 		length_m = trace_length_um * 1e-6
+		
 		trace_width_name = filename_arr[1]
 		trace_width_um = int( trace_width_name[0:-2] ) # get rid of the "um" in the width section
 		data_final_arr = filename_arr[-1].split(".")
@@ -79,18 +60,34 @@ def extract_rlgc_all(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, ski
 		# $LENGTH_$WIDTHum_$WHATEVER.s2p
 		# where $LENGTH is the structure length in microns
 		# $WIDTH is the structure width in microns
-		# and $WHATEVER can be anything
-		structure_string = "L{0:d}um_W{1:d}um_{2:s}.csv".format(trace_length_um, trace_width_um, data_final_str)
-		rlgc_filename = "rlgc_" + structure_string
+		# and $WHATEVER is whatever's left over,  typically a sample number and maybe some other info
+		structure_string = "L{0:d}um_W{1:d}um_{2:s}".format(trace_length_um, trace_width_um, data_final_str)
+		rlgc_filename = "rlgc_" + structure_string + ".csv"
 		structure_L_s2p_filename = filename
-		structure_2L_s2p_filename = filename # this one doesn't seem to matter? Weird
-		(freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L, net_L, net_2L) = l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename)
-		(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sdb_L, Sdeg_L)
+		#structure_2L_s2p_filename = filename # this one doesn't seem to matter? Weird
+#		(freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L, net_L, net_2L) = l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename)
+		
+		net_dut = rf.Network(structure_L_s2p_filename, z0_probe)
+		Sdb_dut = net_dut.s_db
+		Sdeg_dut = net_dut.s_deg
+		abcd_dut = sdb2abcd(Sdb_dut, Sdeg_dut)
+		(freq, R, L, G, C) = extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe, method)
+#
+#		if method == "distributed":		
+#			(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sdb_L, Sdeg_L, z0_probe)
+#		elif method == "lumped":
+#			(freq, R, L, G, C, Zdiff, Ycomm, net) = lumped_rlgc_from_Network(net_L, z0_probe)
+#		elif method == "distributed_abcd":
+#			(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_abcd(length_m, freq, abcd_L, z0_probe)
+#		elif method == "distributed_ri":
+#			(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sri_L, z0_probe)
+
+
 		write_rlgc(freq, R, L, G, C, rlgc_filename)
 		
 		if not skip_plots:
 			plot_rlgc(freq, R, L, G, C, structure_string)
-			plot_s_params(freq, Sdb_L, Sdeg_L, structure_string)
+			plot_s_params(freq, Sdb_dut, Sdeg_dut, structure_string)
 
 			
 
@@ -103,28 +100,28 @@ def plot_rlgc(freq, R, L, G, C, structure_string):
 	pl.plot(freq_ghz, R, "b", linewidth=2)
 	pl.xlabel("Frequency (GHz)")
 	#pl.ylabel("Resistance (Ohms)")
-	pl.ylabel("R (Ohms)")
+	pl.ylabel("R ($\Omega$/m)")
 	ax1.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
 	
 	ax2 = pl.subplot(4,1,2)
 	pl.plot(freq_ghz, L, "b", linewidth=2)
 	pl.xlabel("Frequency (GHz)")
 	#pl.ylabel("Inductance (H)")
-	pl.ylabel("L (H)")
+	pl.ylabel("L (H/m)")
 	ax2.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
 	
 	ax3 = pl.subplot(4,1,3)
 	pl.plot(freq_ghz, G, "b", linewidth=2)
 	pl.xlabel("Frequency (GHz)")
 	#pl.ylabel("Conductance (S)")
-	pl.ylabel("G (S)")
+	pl.ylabel("G (S/m)")
 	ax3.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
 	
 	ax4 = pl.subplot(4,1,4)
 	pl.plot(freq_ghz, C, "b", linewidth=2)
 	pl.xlabel("Frequency (GHz)")
 	#pl.ylabel("Capacitance (F)")
-	pl.ylabel("C (F)")
+	pl.ylabel("C (F/m)")
 	ax4.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
 	
 	pl.savefig(structure_string + "_RLGC.pdf")
@@ -153,7 +150,7 @@ def plot_s_params(freq, Sdb, Sdeg, structure_string):
 		S21_deg[idx] = Sdeg[idx][1][0]
 		S22_deg[idx] = Sdeg[idx][1][1]
 		
-	pl.figure(1)
+	pl.figure(1, figsize=(8.5,11) )
 	pl.clf()
 	pl.subplot(2,1,1)
 	pl.hold(True)
@@ -161,6 +158,7 @@ def plot_s_params(freq, Sdb, Sdeg, structure_string):
 	pl.plot(freq_ghz, S22_db, 'g', linewidth=2, label="S22")
 	pl.xlabel("Frequency (GHz)")
 	pl.ylabel("S Parameters (DB)")
+	pl.grid()
 	pl.legend()
 	
 	pl.subplot(2,1,2)
@@ -169,6 +167,7 @@ def plot_s_params(freq, Sdb, Sdeg, structure_string):
 	pl.plot(freq_ghz, S21_db, 'g', linewidth=2, label="S21")
 	pl.xlabel("Frequency (GHz)")
 	pl.ylabel("S Parameters (DB)")
+	pl.grid()
 	pl.legend()
 	
 	pl.savefig(structure_string + "_Sdb.pdf")
@@ -181,6 +180,7 @@ def plot_s_params(freq, Sdb, Sdeg, structure_string):
 	pl.plot(freq_ghz, S22_deg, 'g', linewidth=2, label="S22")
 	pl.xlabel("Frequency (GHz)")
 	pl.ylabel("S Parameter Phase (Degrees)")
+	pl.grid()
 	pl.legend()
 	
 	pl.subplot(2,1,2)
@@ -189,6 +189,7 @@ def plot_s_params(freq, Sdb, Sdeg, structure_string):
 	pl.plot(freq_ghz, S21_deg, 'g', linewidth=2, label="S21")
 	pl.xlabel("Frequency (GHz)")
 	pl.ylabel("S Parameter Phase (Degrees)")
+	pl.grid()
 	pl.legend()
 	
 	pl.savefig(structure_string + "_Sdeg.pdf")
@@ -279,7 +280,8 @@ def distributed_rlgc_from_sdb(length_m, freq, Sdb, Sdeg, z0_probe=50):
 		abcd = abcd_mat_array[idx]
 		
 		d_vec[idx] = abcd[1][1]
-		b_vec[idx] = abcd[0][1] # this is actually the C from abcd
+		#b_vec[idx] = abcd[0][1] # B vector (used in the matlab script
+		b_vec[idx] = abcd[1][0] # C vector (what I think needs to be used for Zc extraction)
 		gamma[idx] = 1/length_m*np.arccosh(d_vec[idx])
 		Zc[idx] = np.sinh(gamma[idx] * length_m)/b_vec[idx]
 		#R[idx] = (gamma[idx] * Zc[idx]).real
@@ -571,18 +573,123 @@ def sri2sdb(sri_struct):
 
 
 
+def get_pad_abcd(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50):
+	# (freq, abcd_pad, abcd_pad_inv, Sri_pad, Sdb_pad, Sdeg_pad, net_pad) = get_pad_abcd(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50)
+	net_pad_L = rf.Network(pad_L_s2p_filename, z0=z0_probe) # d
+	net_pad_2L = rf.Network(pad_2L_s2p_filename, z0=z0_probe) # c
+
+	# ABCD matrices
+	M_L = sdb2abcd(net_pad_L.s_db, net_pad_L.s_deg) # ABCD matrix for complete L structure used for pad deembedding (Pad - line - Pad )
+	M_2L = sdb2abcd(net_pad_2L.s_db, net_pad_2L.s_deg) # ABCD matrix for complete 2L structure used for pad deembedding (Pad - line - line - Pad)
+	
+	abcd_pad = [] # ABCD matrix structure for pad
+	abcd_pad_inv = [] # inverse abcd matrix structure for pad
+	
+	# iterating across each frequency point
+	for idx, M_L_mat in enumerate(M_L):
+		M_2L_mat = M_2L[idx]
+		
+		M_L_inv = la.inv(M_L_mat)
+		P_squared = la.inv( np.dot( M_L_inv, np.dot( M_2L_mat, M_L_inv) ) ) # PP = ( ML^-1 * M2L * ML^-1 )^-1
+		P = sla.sqrtm(P_squared) # ABCD matrix of the pad (single pad) for this frequency
+		P_inv = la.inv(P)
+		
+		abcd_pad.append(P)
+		abcd_pad_inv.append(P_inv)
+		
+	Sri_pad = abcd2s(abcd_pad, z0_probe, z0_probe)
+	(Sdb_pad, Sdeg_pad) = sri2sdb(Sri_pad)
+	freq = net_pad_L.f
+	
+	net_pad = rf.Network( f=freq*1e-9, s=Sri_pad, z0=50)
+	
+	return (freq, abcd_pad, abcd_pad_inv, Sri_pad, Sdb_pad, Sdeg_pad, net_pad)
+
+
+	
+def deembed_pads_from_measurement(abcd_pad_inv, abcd_dut, z0_probe = 50):
+	# (abcd_dut_deembedded, Sri_dut, Sdb_dut, Sdeg_dut) = deembed_pads_from_measurement(abcd_pad_inv, abcd_dut, z0_probe = 50)
+	
+	abcd_dut_deembedded = []
+	
+	for idx, Pinv in enumerate(abcd_pad_inv):
+		abcd_dut_deembedded_f = np.dot( Pinv, np.dot( abcd_dut, Pinv) )
+		abcd_dut_deembedded.append(abcd_dut_deembedded_f)
+		
+	Sri_dut = abcd2s(abcd_dut, z0_probe, z0_probe)
+	(Sdb_dut, Sdeg_dut) = sri2sdb(Sri_dut)
+	
+		
+	return (abcd_dut_deembedded, Sri_dut, Sdb_dut, Sdeg_dut)
+	
+	
+	
+def extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe = 50, method="distributed"):
+	# (freq, R, L, G, C) = extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe = 50, method="distributed")
+	
+	(abcd_dut_deembedded, Sri_dut, Sdb_dut, Sdeg_dut) = deembed_pads_from_measurement(abcd_pad_inv, abcd_dut, z0_probe)
+	
+	if method == "distributed":		
+			(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sdb_dut, Sdeg_dut, z0_probe)
+	elif method == "lumped":
+		net_dut = rf.Network( f=freq*1e-9, s=Sri_dut, z0=z0_probe)
+		(freq, R, L, G, C, Zdiff, Ycomm, net) = lumped_rlgc_from_Network(net_dut, z0_probe)
+	elif method == "distributed_abcd":
+		(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_abcd(length_m, freq, abcd_dut, z0_probe)
+	elif method == "distributed_ri":
+		(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sri_dut, z0_probe)
+		
+	return (freq, R, L, G, C)
+	
+
+
+
+def l2l_deembed_mod(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, z0_probe=50):
+
+	net_pad_L = rf.Network(pad_L_s2p_filename, z0=z0_probe) # d
+	net_pad_2L = rf.Network(pad_2L_s2p_filename, z0=z0_probe) # c
+	net_struct_L = rf.Network(structure_L_s2p_filename, z0=z0_probe) # e
+
+	# ABCD matrices
+	M_L = sdb2abcd(net_pad_L.s_db, net_pad_L.s_deg) # ABCD matrix for complete L structure used for pad deembedding (Pad - line - Pad )
+	M_2L = sdb2abcd(net_pad_2L.s_db, net_pad_2L.s_deg) # ABCD matrix for complete 2L structure used for pad deembedding (Pad - line - line - Pad)
+	S_L = sdb2abcd(net_struct_L.s_db, net_struct_L.s_deg) # ABCD matrix for complete L structure from which we want to remove the pad contribution (Pad - stuff - Pad)
+
+	abcd_L = [] # ABCD matrix structure for transmission line
+	
+	# iterating across each frequency point
+	for idx, M_L_mat in enumerate(M_L):
+		M_2L_mat = M_2L[idx]
+		
+		M_L_inv = la.inv(M_L_mat)
+		P_squared = la.inv( np.dot( M_L_inv, np.dot( M_2L_mat, M_L_inv) ) ) # PP = ( ML^-1 * M2L * ML^-1 )^-1
+		P = sla.sqrtm(P_squared) # ABCD matrix of the pad (single pad) for this frequency
+		P_inv = la.inv(P)
+		
+		abcd_f = np.dot( P_inv, np.dot( S_L, P_inv) )
+		abcd_L.append(abcd_f)
+		
+	Sri_L = abcd2s(abcd_L, z0_probe, z0_probe)
+	(Sdb_L, Sdeg_L) = sri2sdb(Sri_L)
+	freq = net_pad_L.f
+	
+	net_L = rf.Network( f=freq*1e-9, s=Sri_L, z0=50)
+	
+
+	return (freq, Sri_L, abcd_L, Sdb_L, Sdeg_L, net_L)
+
 
 def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename, z0_probe=50):
 
 	net_pad_L = rf.Network(pad_L_s2p_filename, z0=z0_probe) # d
 	net_pad_2L = rf.Network(pad_2L_s2p_filename, z0=z0_probe) # c
-	#net_struct_L = rf.Network(structure_L_s2p_filename, z0=z0_probe) # e # not needed
+	net_struct_L = rf.Network(structure_L_s2p_filename, z0=z0_probe) # e # not needed
 	net_struct_2L = rf.Network(structure_2L_s2p_filename, z0=z0_probe) # f
 
 	# ABCD matrices
 	TP_2L = sdb2abcd(net_pad_2L.s_db, net_pad_2L.s_deg)
 	TP_L = sdb2abcd(net_pad_L.s_db, net_pad_L.s_deg)
-	#TS_L = sdb2abcd(net_struct_L.s_db, net_struct_L.s_deg) # not needed
+	TS_L = sdb2abcd(net_struct_L.s_db, net_struct_L.s_deg)
 	TS_2L = sdb2abcd(net_struct_2L.s_db, net_struct_2L.s_deg)
 
 
@@ -596,10 +703,15 @@ def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filenam
 		TP_L_inner_pre = np.dot( tlpi_mat, np.dot( tp_2l_mat, tlpi_mat ) ) # TLPI_MAT * TS_2L_MAT * TLPI_MAT matrix multiplication
 		TP_L_inner = la.inv(TP_L_inner_pre)
 		TP1 = sla.sqrtm(TP_L_inner)
-		TL1.append(TP1)
+		#TL1.append(TP1)
+		
 
 		TP1_inv = la.inv(TP1)
 		TS_2L_entry = TS_2L[idx]
+		TS_L_entry = TS_L[idx]
+		TL1_entry = np.dot( TP1_inv, np.dot( TS_L_entry,  TP1_inv ) )
+		TL1.append(TL1_entry)
+		
 		TL2_entry = np.dot( TP1_inv, np.dot( TS_2L_entry, TP1_inv ) )
 		TL2.append( TL2_entry )
 
