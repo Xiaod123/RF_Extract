@@ -23,7 +23,7 @@ def main():
 	z0_probe = complex(args.z0_real, args.z0_imag)
 	print("NOTE: Ignore the above warning about pyvisa (if any). It is unimportant for our purposes.\n")
 	
-	extract_rlgc(args.pad_L_s2p_file, args.pad_2L_s2p_file, z0_probe, args.method, args.skip_plots, args.struct_file)
+	(freq_mat, R_mat, L_mat, G_mat, C_mat) = extract_rlgc(args.pad_L_s2p_file, args.pad_2L_s2p_file, z0_probe, args.method, args.skip_plots, args.struct_file)
 	
 	
 	
@@ -35,13 +35,17 @@ def extract_rlgc(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, method=
 	else:
 		file_list = [pad_L_s2p_filename, pad_2L_s2p_filename, struct_L_s2p_filename]
 	
-	
 	print("Pad Deembedding file (L):  {0:s}".format(pad_L_s2p_filename) )
 	print("Pad Deembedding file (2L): {0:s}".format(pad_2L_s2p_filename) )
 	# Get pad deembedding parameters
 	(freq, abcd_pad, abcd_pad_inv, Sri_pad, Sdb_pad, Sdeg_pad, net_pad) = get_pad_abcd(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe)
 	
 	print("Extracting RLGC using {0:s} method...".format(method))
+	freq_mat = []
+	R_mat = []
+	L_mat = []
+	G_mat = []
+	C_mat = []
 	for filename in file_list:
 		
 		#if filename not in extraction_files:
@@ -72,6 +76,11 @@ def extract_rlgc(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, method=
 		Sdeg_dut = net_dut.s_deg
 		abcd_dut = sdb2abcd(Sdb_dut, Sdeg_dut)
 		(freq, R, L, G, C) = extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe, method)
+		freq_mat.append(freq)
+		R_mat.append(R)
+		L_mat.append(L)
+		G_mat.append(G)
+		C_mat.append(C)
 #
 #		if method == "distributed":		
 #			(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sdb_L, Sdeg_L, z0_probe)
@@ -88,6 +97,8 @@ def extract_rlgc(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, method=
 		if not skip_plots:
 			plot_rlgc(freq, R, L, G, C, structure_string)
 			plot_s_params(freq, Sdb_dut, Sdeg_dut, structure_string)
+			
+	return (freq_mat, R_mat, L_mat, G_mat, C_mat)
 
 			
 
