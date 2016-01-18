@@ -43,10 +43,16 @@ def extract_rlgc(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, method=
 	L_mat = []
 	G_mat = []
 	C_mat = []
+	length_vec = []
+	width_vec = []
+	name_vec = []
 	for filename in file_list:
+		# First strip out any stuff from the path
+		nfilename_arr = filename.split("\\")
+		nfilename = nfilename_arr[-1]
 		
-		#if filename not in extraction_files:
-		filename_arr = filename.split("_")
+		# now process the actual filename
+		filename_arr = nfilename.split("_")
 		trace_length_um = int(filename_arr[0])
 		length_m = trace_length_um * 1e-6
 		
@@ -65,28 +71,21 @@ def extract_rlgc(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, method=
 		structure_string = "L{0:d}um_W{1:d}um_{2:s}".format(trace_length_um, trace_width_um, data_final_str)
 		rlgc_filename = "rlgc_" + structure_string + ".csv"
 		structure_L_s2p_filename = filename
-		#structure_2L_s2p_filename = filename # this one doesn't seem to matter? Weird
-#		(freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L, net_L, net_2L) = l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename)
 		
 		net_dut = rf.Network(structure_L_s2p_filename, z0_probe)
 		Sdb_dut = net_dut.s_db
 		Sdeg_dut = net_dut.s_deg
 		abcd_dut = sdb2abcd(Sdb_dut, Sdeg_dut)
+		
 		(freq, R, L, G, C) = extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe, method)
 		freq_mat.append(freq)
 		R_mat.append(R)
 		L_mat.append(L)
 		G_mat.append(G)
 		C_mat.append(C)
-#
-#		if method == "distributed":		
-#			(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sdb_L, Sdeg_L, z0_probe)
-#		elif method == "lumped":
-#			(freq, R, L, G, C, Zdiff, Ycomm, net) = lumped_rlgc_from_Network(net_L, z0_probe)
-#		elif method == "distributed_abcd":
-#			(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_abcd(length_m, freq, abcd_L, z0_probe)
-#		elif method == "distributed_ri":
-#			(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sri_L, z0_probe)
+		name_vec.append(structure_string)
+		length_vec.append(trace_length_um)
+		width_vec.append(trace_width_um)
 
 
 		write_rlgc(freq, R, L, G, C, rlgc_filename)
@@ -94,10 +93,32 @@ def extract_rlgc(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, method=
 		if not skip_plots:
 			plot_rlgc(freq, R, L, G, C, structure_string)
 			plot_s_params(freq, Sdb_dut, Sdeg_dut, structure_string)
+	
+	write_data(freq_mat[0], R_mat, name_vec, "R.csv")
+	write_data(freq_mat[0], L_mat, name_vec, "L.csv")
+	write_data(freq_mat[0], C_mat, name_vec, "G.csv")
+	write_data(freq_mat[0], G_mat, name_vec, "C.csv")
 			
-	return (freq_mat, R_mat, L_mat, G_mat, C_mat)
+	return (freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec)
 
-			
+
+def write_data( freq, data_mat, name_mat, filename):
+	outfile = open(filename, 'w')
+	
+	data_shape = np.shape(data_mat)
+	num_freqs = data_shape[0]
+	num_cols = data_shape[1]
+	outstr = ",".join(name_mat)
+	outfile.write("{0:s},{1:s}\n".format("Freq (Hz)", outstr) )
+	
+	data_mat = np.array(data_mat)
+
+	for idx, f in enumerate(freq):
+		data_str_vec = [ "{0:.8g}".format(el) for el in data_mat[:,idx] ]
+		data_str = ",".join(data_str_vec)
+		outfile.write("{0:.8g},{1:s}\n".format(f, data_str) )
+	
+		
 
 def plot_rlgc(freq, R, L, G, C, structure_string):
 	freq_ghz = freq/1e9
