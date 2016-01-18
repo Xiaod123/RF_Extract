@@ -126,6 +126,8 @@ def plot_rlgc(freq, R, L, G, C, structure_string):
 	
 	pl.savefig(structure_string + "_RLGC.pdf")
 	
+	
+	
 def plot_s_params(freq, Sdb, Sdeg, structure_string):
 	freq_ghz = freq/1e9
 	
@@ -579,23 +581,23 @@ def get_pad_abcd(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50):
 	net_pad_2L = rf.Network(pad_2L_s2p_filename, z0=z0_probe) # c
 
 	# ABCD matrices
-	M_L = sdb2abcd(net_pad_L.s_db, net_pad_L.s_deg) # ABCD matrix for complete L structure used for pad deembedding (Pad - line - Pad )
-	M_2L = sdb2abcd(net_pad_2L.s_db, net_pad_2L.s_deg) # ABCD matrix for complete 2L structure used for pad deembedding (Pad - line - line - Pad)
+	abcd_L = sdb2abcd(net_pad_L.s_db, net_pad_L.s_deg) # ABCD matrix for complete L structure used for pad deembedding (Pad - line - Pad )
+	abcd_2L = sdb2abcd(net_pad_2L.s_db, net_pad_2L.s_deg) # ABCD matrix for complete 2L structure used for pad deembedding (Pad - line - line - Pad)
 	
 	abcd_pad = [] # ABCD matrix structure for pad
 	abcd_pad_inv = [] # inverse abcd matrix structure for pad
 	
 	# iterating across each frequency point
-	for idx, M_L_mat in enumerate(M_L):
-		M_2L_mat = M_2L[idx]
+	for idx, abcd_L_mat in enumerate(abcd_L):
+		abcd_2L_mat = abcd_2L[idx]
 		
-		M_L_inv = la.inv(M_L_mat)
-		P_squared = la.inv( np.dot( M_L_inv, np.dot( M_2L_mat, M_L_inv) ) ) # PP = ( ML^-1 * M2L * ML^-1 )^-1
-		P = sla.sqrtm(P_squared) # ABCD matrix of the pad (single pad) for this frequency
-		P_inv = la.inv(P)
+		abcd_L_inv = la.inv(abcd_L_mat)
+		abcd_P_squared = la.inv( np.dot( abcd_L_inv, np.dot( abcd_2L_mat, abcd_L_inv) ) ) # PP = ( ML^-1 * M2L * ML^-1 )^-1
+		abcd_P = sla.sqrtm(abcd_P_squared) # ABCD matrix of the pad (single pad) for this frequency
+		abcd_P_inv = la.inv(abcd_P)
 		
-		abcd_pad.append(P)
-		abcd_pad_inv.append(P_inv)
+		abcd_pad.append(abcd_P)
+		abcd_pad_inv.append(abcd_P_inv)
 		
 	Sri_pad = abcd2s(abcd_pad, z0_probe, z0_probe)
 	(Sdb_pad, Sdeg_pad) = sri2sdb(Sri_pad)
