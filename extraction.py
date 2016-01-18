@@ -13,7 +13,7 @@ def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument("pad_L_s2p_file", help="Filename for L structure measurement to be used for pad extraction")
 	parser.add_argument("pad_2L_s2p_file", help="Filename for 2L structure measurement to be used for pad extraction")
-	parser.add_argument("--struct_file", default="PARSE_ALL", help="Filename for structure to convert. If this argument is presented, ONLY this structure will be extracted")
+	parser.add_argument("--struct_s2p_name", default="*.s2p", help="Filename for structure to convert. If this argument is presented, ONLY file names conforming to this naming scheme will be processed. Accepts globs (i.e. input *_foo.s2p to process all files ending with _foo.s2p). Default is *.s2p (all s2p files)")
 	parser.add_argument("--z0_real", type=float, default=50, help="Real portion of probe impedance. Default is 50 Ohms")
 	parser.add_argument("--z0_imag", type=float, default=0, help="Imaginary portion of probe impedance. Default is 0 Ohms (Default impedance is 50 + 0j)")
 	parser.add_argument("--skip_plots", action="store_true", default=False, help="Skip plotting for faster data extraction")
@@ -23,17 +23,14 @@ def main():
 	z0_probe = complex(args.z0_real, args.z0_imag)
 	print("NOTE: Ignore the above warning about pyvisa (if any). It is unimportant for our purposes.\n")
 	
-	(freq_mat, R_mat, L_mat, G_mat, C_mat) = extract_rlgc(args.pad_L_s2p_file, args.pad_2L_s2p_file, z0_probe, args.method, args.skip_plots, args.struct_file)
+	(freq_mat, R_mat, L_mat, G_mat, C_mat) = extract_rlgc(args.pad_L_s2p_file, args.pad_2L_s2p_file, z0_probe, args.method, args.skip_plots, args.struct_s2p_name)
 	
 	
 	
 
-def extract_rlgc(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, method="distributed", skip_plots=False, struct_L_s2p_filename="PARSE_ALL"):
+def extract_rlgc(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, method="distributed", skip_plots=False, struct_s2p_name="*.s2p"):
 
-	if struct_L_s2p_filename == "PARSE_ALL":
-		file_list = glob.glob("*.s2p")
-	else:
-		file_list = [pad_L_s2p_filename, pad_2L_s2p_filename, struct_L_s2p_filename]
+	file_list = glob.glob(struct_s2p_name)
 	
 	print("Pad Deembedding file (L):  {0:s}".format(pad_L_s2p_filename) )
 	print("Pad Deembedding file (2L): {0:s}".format(pad_2L_s2p_filename) )
