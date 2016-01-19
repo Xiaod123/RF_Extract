@@ -107,28 +107,38 @@ def extract_rlgc(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, method=
 def deembed_pads_from_measurement(abcd_pad_inv, abcd_dut, z0_probe = 50):
 	# (abcd_dut_deembedded, Sri_dut, Sdb_dut, Sdeg_dut) = deembed_pads_from_measurement(abcd_pad_inv, abcd_dut, z0_probe = 50)
 	
-	abcd_dut_deembedded = []
+	num_freqs = len(abcd_dut)
+	abcd_dut_deembedded = np.zeros( (num_freqs, 2, 2), dtype=complex )
+	Sri_dut_deembedded = np.zeros( (num_freqs, 2, 2), dtype=complex )
 	
 	for idx, Pinv in enumerate(abcd_pad_inv):
-		abcd_dut_deembedded_f = np.dot( Pinv, np.dot( abcd_dut, Pinv) )
-		abcd_dut_deembedded.append(abcd_dut_deembedded_f)
+		abcd_dut_deembedded_f = np.dot( Pinv, np.dot( abcd_dut[idx], Pinv) )
+		abcd_dut_deembedded[idx] = abcd_dut_deembedded_f
 		
-	Sri_dut = abcd2s(abcd_dut, z0_probe, z0_probe)
-	(Sdb_dut, Sdeg_dut) = sri2sdb(Sri_dut)
+	Sri_dut_deembedded = abcd2s(abcd_dut_deembedded, z0_probe, z0_probe)
+	(Sdb_dut_deembedded, Sdeg_dut_deembedded) = sri2sdb(Sri_dut_deembedded)
+	#Sri_dut_deembedded[idx] = Sri_dut_deembedded_f
+		
+	#Sri_dut = abcd2s(abcd_dut, z0_probe, z0_probe)
+	#(Sdb_dut, Sdeg_dut) = sri2sdb(Sri_dut)
+	
+	
+	
 	
 		
-	return (abcd_dut_deembedded, Sri_dut, Sdb_dut, Sdeg_dut)
+	return (abcd_dut_deembedded, Sri_dut_deembedded, Sdb_dut_deembedded, Sdeg_dut_deembedded)
 	
 	
 	
-def extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe = 50, method="distributed", skip_deembed=False):
+def extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_meas, z0_probe = 50, method="distributed", skip_deembed=False):
 	# (freq, R, L, G, C) = extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe = 50, method="distributed")
 	
 	if not skip_deembed:
-		(abcd_dut_deembedded, Sri_dut, Sdb_dut, Sdeg_dut) = deembed_pads_from_measurement(abcd_pad_inv, abcd_dut, z0_probe)
+		(abcd_dut, Sri_dut, Sdb_dut, Sdeg_dut) = deembed_pads_from_measurement(abcd_pad_inv, abcd_meas, z0_probe)
 	else:
-		Sri_dut = abcd2s(abcd_dut, z0_probe, z0_probe)
+		Sri_dut = abcd2s(abcd_meas, z0_probe, z0_probe)
 		(Sdb_dut, Sdeg_dut) = sri2sdb(Sri_dut)
+		abcd_dut = abcd_meas
 	
 	if method == "distributed":		
 			(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sdb_dut, Sdeg_dut, z0_probe)
@@ -635,6 +645,7 @@ def get_pad_abcd(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50):
 	freq = net_pad_L.f
 	
 	net_pad = rf.Network( f=freq*1e-9, s=Sri_pad, z0=50)
+	print( net_pad.f )
 	
 	return (freq, abcd_pad, abcd_pad_inv, Sri_pad, Sdb_pad, Sdeg_pad, net_pad)
 
