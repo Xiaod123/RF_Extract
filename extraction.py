@@ -1,7 +1,6 @@
-import scipy as sp
 import numpy as np
-import numpy.linalg as la
-import scipy.linalg as sla
+#import numpy.linalg as la
+import scipy.linalg as la
 import matplotlib.pyplot as pl
 import skrf as rf # RF functions. To install this do "conda install -c scikit-rf  scikit-rf" from the command line if you have Anaconda Python installed, otherwise do "pip install scikit-rf"
 import math
@@ -623,7 +622,7 @@ def get_pad_abcd(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50):
 		
 		abcd_L_inv = la.inv(abcd_L_mat)
 		abcd_P_squared = la.inv( np.dot( abcd_L_inv, np.dot( abcd_2L_mat, abcd_L_inv) ) ) # PP = ( ML^-1 * M2L * ML^-1 )^-1
-		abcd_P = sla.sqrtm(abcd_P_squared) # ABCD matrix of the pad (single pad) for this frequency
+		abcd_P = la.sqrtm(abcd_P_squared) # ABCD matrix of the pad (single pad) for this frequency
 		abcd_P_inv = la.inv(abcd_P)
 		
 		abcd_pad.append(abcd_P)
@@ -699,7 +698,7 @@ def l2l_deembed_mod(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_fil
 		
 		M_L_inv = la.inv(M_L_mat)
 		P_squared = la.inv( np.dot( M_L_inv, np.dot( M_2L_mat, M_L_inv) ) ) # PP = ( ML^-1 * M2L * ML^-1 )^-1
-		P = sla.sqrtm(P_squared) # ABCD matrix of the pad (single pad) for this frequency
+		P = la.sqrtm(P_squared) # ABCD matrix of the pad (single pad) for this frequency
 		P_inv = la.inv(P)
 		
 		abcd_f = np.dot( P_inv, np.dot( S_L, P_inv) )
@@ -738,7 +737,7 @@ def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filenam
 		
 		TP_L_inner_pre = np.dot( tlpi_mat, np.dot( tp_2l_mat, tlpi_mat ) ) # TLPI_MAT * TS_2L_MAT * TLPI_MAT matrix multiplication
 		TP_L_inner = la.inv(TP_L_inner_pre)
-		TP1 = sla.sqrtm(TP_L_inner)
+		TP1 = la.sqrtm(TP_L_inner)
 		#TL1.append(TP1)
 		
 
