@@ -102,134 +102,6 @@ def extract_rlgc(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, method=
 	return (freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec)
 
 
-def write_data( freq, data_mat, name_mat, filename):
-	outfile = open(filename, 'w')
-	
-	data_shape = np.shape(data_mat)
-	num_freqs = data_shape[0]
-	num_cols = data_shape[1]
-	outstr = ",".join(name_mat)
-	outfile.write("{0:s},{1:s}\n".format("Freq (Hz)", outstr) )
-	
-	data_mat = np.array(data_mat)
-
-	for idx, f in enumerate(freq):
-		data_str_vec = [ "{0:.8g}".format(el) for el in data_mat[:,idx] ]
-		data_str = ",".join(data_str_vec)
-		outfile.write("{0:.8g},{1:s}\n".format(f, data_str) )
-	
-		
-
-def plot_rlgc(freq, R, L, G, C, structure_string):
-	freq_ghz = freq/1e9
-	
-	pl.figure(1, figsize=(9,13) )
-	pl.clf()
-	ax1 = pl.subplot(4,1,1)
-	pl.plot(freq_ghz, R, "b", linewidth=2)
-	pl.xlabel("Frequency (GHz)")
-	#pl.ylabel("Resistance (Ohms)")
-	pl.ylabel("R ($\Omega$/m)")
-	ax1.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
-	
-	ax2 = pl.subplot(4,1,2)
-	pl.plot(freq_ghz, L, "b", linewidth=2)
-	pl.xlabel("Frequency (GHz)")
-	#pl.ylabel("Inductance (H)")
-	pl.ylabel("L (H/m)")
-	ax2.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
-	
-	ax3 = pl.subplot(4,1,3)
-	pl.plot(freq_ghz, G, "b", linewidth=2)
-	pl.xlabel("Frequency (GHz)")
-	#pl.ylabel("Conductance (S)")
-	pl.ylabel("G (S/m)")
-	ax3.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
-	
-	ax4 = pl.subplot(4,1,4)
-	pl.plot(freq_ghz, C, "b", linewidth=2)
-	pl.xlabel("Frequency (GHz)")
-	#pl.ylabel("Capacitance (F)")
-	pl.ylabel("C (F/m)")
-	ax4.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
-	
-	pl.savefig(structure_string + "_RLGC.pdf")
-	
-	
-	
-def plot_s_params(freq, Sdb, Sdeg, structure_string):
-	freq_ghz = freq/1e9
-	
-	S11_db = np.zeros( (len(Sdb)) )
-	S12_db = np.zeros( (len(Sdb)) )
-	S21_db = np.zeros( (len(Sdb)) )
-	S22_db = np.zeros( (len(Sdb)) )
-	
-	S11_deg = np.zeros( (len(Sdb)) )
-	S12_deg = np.zeros( (len(Sdb)) )
-	S21_deg = np.zeros( (len(Sdb)) )
-	S22_deg = np.zeros( (len(Sdb)) )
-	
-	for idx in range(len(Sdb)):
-		S11_db[idx] = Sdb[idx][0][0]
-		S12_db[idx] = Sdb[idx][0][1]
-		S21_db[idx] = Sdb[idx][1][0]
-		S22_db[idx] = Sdb[idx][1][1]
-		
-		S11_deg[idx] = Sdeg[idx][0][0]
-		S12_deg[idx] = Sdeg[idx][0][1]
-		S21_deg[idx] = Sdeg[idx][1][0]
-		S22_deg[idx] = Sdeg[idx][1][1]
-		
-	pl.figure(1, figsize=(8.5,11) )
-	pl.clf()
-	pl.subplot(2,1,1)
-	pl.hold(True)
-	pl.plot(freq_ghz, S11_db, 'b', linewidth=2, label="S11")
-	pl.plot(freq_ghz, S22_db, 'g', linewidth=2, label="S22")
-	pl.xlabel("Frequency (GHz)")
-	pl.ylabel("S Parameters (DB)")
-	pl.grid()
-	pl.legend()
-	
-	pl.subplot(2,1,2)
-	pl.hold(True)
-	pl.plot(freq_ghz, S12_db, 'b', linewidth=2, label="S12")
-	pl.plot(freq_ghz, S21_db, 'g', linewidth=2, label="S21")
-	pl.xlabel("Frequency (GHz)")
-	pl.ylabel("S Parameters (DB)")
-	pl.grid()
-	pl.legend()
-	
-	pl.savefig(structure_string + "_Sdb.pdf")
-	
-	pl.figure(2)
-	pl.clf()
-	pl.subplot(2,1,1)
-	pl.hold(True)
-	pl.plot(freq_ghz, S11_deg, 'b', linewidth=2, label="S11")
-	pl.plot(freq_ghz, S22_deg, 'g', linewidth=2, label="S22")
-	pl.xlabel("Frequency (GHz)")
-	pl.ylabel("S Parameter Phase (Degrees)")
-	pl.grid()
-	pl.legend()
-	
-	pl.subplot(2,1,2)
-	pl.hold(True)
-	pl.plot(freq_ghz, S12_deg, 'b', linewidth=2, label="S12")
-	pl.plot(freq_ghz, S21_deg, 'g', linewidth=2, label="S21")
-	pl.xlabel("Frequency (GHz)")
-	pl.ylabel("S Parameter Phase (Degrees)")
-	pl.grid()
-	pl.legend()
-	
-	pl.savefig(structure_string + "_Sdeg.pdf")
-	
-	
-	
-
-			
-
 def distributed_rlgc_from_abcd(length_m, freq, abcd_mat_array, z0_probe=50):
 	# length_m:	(m)	Length of structure being measured
 	# s2p_filename: (str)	s2p filename
@@ -830,6 +702,131 @@ def write_rlgc(freq, R, L, G, C, filename):
 		
 		outstr = "{0:.8g},{1:.8g},{2:.8g},{3:.8g},{4:.8g}\n".format(f, r, l, g, c)
 		outfile.write(outstr)
+		
+
+def write_data( freq, data_mat, name_mat, filename):
+	outfile = open(filename, 'w')
+	
+	data_shape = np.shape(data_mat)
+	num_freqs = data_shape[0]
+	num_cols = data_shape[1]
+	outstr = ",".join(name_mat)
+	outfile.write("{0:s},{1:s}\n".format("Freq (Hz)", outstr) )
+	
+	data_mat = np.array(data_mat)
+
+	for idx, f in enumerate(freq):
+		data_str_vec = [ "{0:.8g}".format(el) for el in data_mat[:,idx] ]
+		data_str = ",".join(data_str_vec)
+		outfile.write("{0:.8g},{1:s}\n".format(f, data_str) )
+	
+		
+
+def plot_rlgc(freq, R, L, G, C, structure_string):
+	freq_ghz = freq/1e9
+	
+	pl.figure(1, figsize=(9,13) )
+	pl.clf()
+	ax1 = pl.subplot(4,1,1)
+	pl.plot(freq_ghz, R, "b", linewidth=2)
+	pl.xlabel("Frequency (GHz)")
+	#pl.ylabel("Resistance (Ohms)")
+	pl.ylabel("R ($\Omega$/m)")
+	ax1.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
+	
+	ax2 = pl.subplot(4,1,2)
+	pl.plot(freq_ghz, L, "b", linewidth=2)
+	pl.xlabel("Frequency (GHz)")
+	#pl.ylabel("Inductance (H)")
+	pl.ylabel("L (H/m)")
+	ax2.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
+	
+	ax3 = pl.subplot(4,1,3)
+	pl.plot(freq_ghz, G, "b", linewidth=2)
+	pl.xlabel("Frequency (GHz)")
+	#pl.ylabel("Conductance (S)")
+	pl.ylabel("G (S/m)")
+	ax3.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
+	
+	ax4 = pl.subplot(4,1,4)
+	pl.plot(freq_ghz, C, "b", linewidth=2)
+	pl.xlabel("Frequency (GHz)")
+	#pl.ylabel("Capacitance (F)")
+	pl.ylabel("C (F/m)")
+	ax4.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
+	
+	pl.savefig(structure_string + "_RLGC.pdf")
+	
+	
+	
+def plot_s_params(freq, Sdb, Sdeg, structure_string):
+	freq_ghz = freq/1e9
+	
+	S11_db = np.zeros( (len(Sdb)) )
+	S12_db = np.zeros( (len(Sdb)) )
+	S21_db = np.zeros( (len(Sdb)) )
+	S22_db = np.zeros( (len(Sdb)) )
+	
+	S11_deg = np.zeros( (len(Sdb)) )
+	S12_deg = np.zeros( (len(Sdb)) )
+	S21_deg = np.zeros( (len(Sdb)) )
+	S22_deg = np.zeros( (len(Sdb)) )
+	
+	for idx in range(len(Sdb)):
+		S11_db[idx] = Sdb[idx][0][0]
+		S12_db[idx] = Sdb[idx][0][1]
+		S21_db[idx] = Sdb[idx][1][0]
+		S22_db[idx] = Sdb[idx][1][1]
+		
+		S11_deg[idx] = Sdeg[idx][0][0]
+		S12_deg[idx] = Sdeg[idx][0][1]
+		S21_deg[idx] = Sdeg[idx][1][0]
+		S22_deg[idx] = Sdeg[idx][1][1]
+		
+	pl.figure(1, figsize=(8.5,11) )
+	pl.clf()
+	pl.subplot(2,1,1)
+	pl.hold(True)
+	pl.plot(freq_ghz, S11_db, 'b', linewidth=2, label="S11")
+	pl.plot(freq_ghz, S22_db, 'g', linewidth=2, label="S22")
+	pl.xlabel("Frequency (GHz)")
+	pl.ylabel("S Parameters (DB)")
+	pl.grid()
+	pl.legend()
+	
+	pl.subplot(2,1,2)
+	pl.hold(True)
+	pl.plot(freq_ghz, S12_db, 'b', linewidth=2, label="S12")
+	pl.plot(freq_ghz, S21_db, 'g', linewidth=2, label="S21")
+	pl.xlabel("Frequency (GHz)")
+	pl.ylabel("S Parameters (DB)")
+	pl.grid()
+	pl.legend()
+	
+	pl.savefig(structure_string + "_Sdb.pdf")
+	
+	pl.figure(2)
+	pl.clf()
+	pl.subplot(2,1,1)
+	pl.hold(True)
+	pl.plot(freq_ghz, S11_deg, 'b', linewidth=2, label="S11")
+	pl.plot(freq_ghz, S22_deg, 'g', linewidth=2, label="S22")
+	pl.xlabel("Frequency (GHz)")
+	pl.ylabel("S Parameter Phase (Degrees)")
+	pl.grid()
+	pl.legend()
+	
+	pl.subplot(2,1,2)
+	pl.hold(True)
+	pl.plot(freq_ghz, S12_deg, 'b', linewidth=2, label="S12")
+	pl.plot(freq_ghz, S21_deg, 'g', linewidth=2, label="S21")
+	pl.xlabel("Frequency (GHz)")
+	pl.ylabel("S Parameter Phase (Degrees)")
+	pl.grid()
+	pl.legend()
+	
+	pl.savefig(structure_string + "_Sdeg.pdf")
+	
 		
 
 if (__name__ == "__main__"):
