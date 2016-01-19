@@ -59,7 +59,7 @@ def extract_rlgc(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, method=
 		
 		trace_width_name = filename_arr[1]
 		trace_width_um = int( trace_width_name[0:-2] ) # get rid of the "um" in the width section
-		data_final_arr = filename_arr[-1].split(".")
+		data_final_arr = "_".join(filename_arr[2:]).split(".")
 		data_final_str = data_final_arr[0]
 		print("\tL: {0:d}um \t W: {1:d}um \t Sample: {2:s}".format(trace_length_um, trace_width_um, data_final_str) )
 		
