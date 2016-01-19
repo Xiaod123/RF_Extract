@@ -14,6 +14,7 @@ def main():
 	parser.add_argument("pad_L_s2p_file", help="Filename for L structure measurement to be used for pad extraction")
 	parser.add_argument("pad_2L_s2p_file", help="Filename for 2L structure measurement to be used for pad extraction")
 	parser.add_argument("--struct_s2p_name", default="*.s2p", help="Filename for structure to convert. If this argument is presented, ONLY file names conforming to this naming scheme will be processed. Accepts globs (i.e. input *_foo.s2p to process all files ending with _foo.s2p). Default is *.s2p (all s2p files)")
+	parser.add_argument("--skip_deembed", default=False, action='store_true', help="Use this flag to skip pad deembedding. You will still need to input the pad L/2L filenames, but they will not be used")	
 	parser.add_argument("--z0_real", type=float, default=50, help="Real portion of probe impedance. Default is 50 Ohms")
 	parser.add_argument("--z0_imag", type=float, default=0, help="Imaginary portion of probe impedance. Default is 0 Ohms (Default impedance is 50 + 0j)")
 	parser.add_argument("--skip_plots", action="store_true", default=False, help="Skip plotting for faster data extraction")
@@ -655,10 +656,14 @@ def deembed_pads_from_measurement(abcd_pad_inv, abcd_dut, z0_probe = 50):
 	
 	
 	
-def extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe = 50, method="distributed"):
+def extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe = 50, method="distributed", skip_deembed=False):
 	# (freq, R, L, G, C) = extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe = 50, method="distributed")
 	
-	(abcd_dut_deembedded, Sri_dut, Sdb_dut, Sdeg_dut) = deembed_pads_from_measurement(abcd_pad_inv, abcd_dut, z0_probe)
+	if not skip_deembed:
+		(abcd_dut_deembedded, Sri_dut, Sdb_dut, Sdeg_dut) = deembed_pads_from_measurement(abcd_pad_inv, abcd_dut, z0_probe)
+	else:
+		Sri_dut = abcd2s(abcd_dut, z0_probe, z0_probe)
+		(Sdb_dut, Sdeg_dut) = sri2sdb(Sri_dut)
 	
 	if method == "distributed":		
 			(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sdb_dut, Sdeg_dut, z0_probe)
