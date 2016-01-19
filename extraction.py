@@ -645,7 +645,6 @@ def get_pad_abcd(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50):
 	freq = net_pad_L.f
 	
 	net_pad = rf.Network( f=freq*1e-9, s=Sri_pad, z0=50)
-	print( net_pad.f )
 	
 	return (freq, abcd_pad, abcd_pad_inv, Sri_pad, Sdb_pad, Sdeg_pad, net_pad)
 
