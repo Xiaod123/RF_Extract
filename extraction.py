@@ -23,14 +23,15 @@ def main():
 	z0_probe = complex(args.z0_real, args.z0_imag)
 	print("NOTE: Ignore the above warning about pyvisa (if any). It is unimportant for our purposes.\n")
 	
-	(freq_mat, R_mat, L_mat, G_mat, C_mat) = extract_rlgc(args.pad_L_s2p_file, args.pad_2L_s2p_file, z0_probe, args.method, args.skip_plots, args.struct_s2p_name)
+	(freq_mat, R_mat, L_mat, G_mat, C_mat) = extract_rlgc(args.pad_L_s2p_file, args.pad_2L_s2p_file, z0_probe, args.method, args.skip_plots, args.struct_s2p_name, args.skip_deembed)
 	
 	
 	
 
-def extract_rlgc(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, method="distributed", skip_plots=False, struct_s2p_name="*.s2p"):
+def extract_rlgc(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, method="distributed", skip_plots=False, struct_s2p_name="*.s2p", skip_deembed=False):
 
 	file_list = glob.glob(struct_s2p_name)
+	
 	
 	print("Pad Deembedding file (L):  {0:s}".format(pad_L_s2p_filename) )
 	print("Pad Deembedding file (2L): {0:s}".format(pad_2L_s2p_filename) )
@@ -77,7 +78,7 @@ def extract_rlgc(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, method=
 		Sdeg_dut = net_dut.s_deg
 		abcd_dut = sdb2abcd(Sdb_dut, Sdeg_dut)
 		
-		(freq, R, L, G, C) = extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe, method)
+		(freq, R, L, G, C) = extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe, method, skip_deembed)
 		freq_mat.append(freq)
 		R_mat.append(R)
 		L_mat.append(L)
@@ -100,6 +101,135 @@ def extract_rlgc(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50.0, method=
 	write_data(freq_mat[0], G_mat, name_vec, "C.csv")
 			
 	return (freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec)
+	
+
+
+def deembed_pads_from_measurement(abcd_pad_inv, abcd_dut, z0_probe = 50):
+	# (abcd_dut_deembedded, Sri_dut, Sdb_dut, Sdeg_dut) = deembed_pads_from_measurement(abcd_pad_inv, abcd_dut, z0_probe = 50)
+	
+	abcd_dut_deembedded = []
+	
+	for idx, Pinv in enumerate(abcd_pad_inv):
+		abcd_dut_deembedded_f = np.dot( Pinv, np.dot( abcd_dut, Pinv) )
+		abcd_dut_deembedded.append(abcd_dut_deembedded_f)
+		
+	Sri_dut = abcd2s(abcd_dut, z0_probe, z0_probe)
+	(Sdb_dut, Sdeg_dut) = sri2sdb(Sri_dut)
+	
+		
+	return (abcd_dut_deembedded, Sri_dut, Sdb_dut, Sdeg_dut)
+	
+	
+	
+def extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe = 50, method="distributed", skip_deembed=False):
+	# (freq, R, L, G, C) = extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe = 50, method="distributed")
+	
+	if not skip_deembed:
+		(abcd_dut_deembedded, Sri_dut, Sdb_dut, Sdeg_dut) = deembed_pads_from_measurement(abcd_pad_inv, abcd_dut, z0_probe)
+	else:
+		Sri_dut = abcd2s(abcd_dut, z0_probe, z0_probe)
+		(Sdb_dut, Sdeg_dut) = sri2sdb(Sri_dut)
+	
+	if method == "distributed":		
+			(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sdb_dut, Sdeg_dut, z0_probe)
+	elif method == "lumped":
+		net_dut = rf.Network( f=freq*1e-9, s=Sri_dut, z0=z0_probe)
+		(freq, R, L, G, C, Zdiff, Ycomm, net) = lumped_rlgc_from_Network(net_dut, z0_probe)
+	elif method == "distributed_abcd":
+		(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_abcd(length_m, freq, abcd_dut, z0_probe)
+	elif method == "distributed_ri":
+		(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sri_dut, z0_probe)
+		
+	return (freq, R, L, G, C)
+	
+
+
+
+def l2l_deembed_mod(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, z0_probe=50):
+
+	net_pad_L = rf.Network(pad_L_s2p_filename, z0=z0_probe) # d
+	net_pad_2L = rf.Network(pad_2L_s2p_filename, z0=z0_probe) # c
+	net_struct_L = rf.Network(structure_L_s2p_filename, z0=z0_probe) # e
+
+	# ABCD matrices
+	M_L = sdb2abcd(net_pad_L.s_db, net_pad_L.s_deg) # ABCD matrix for complete L structure used for pad deembedding (Pad - line - Pad )
+	M_2L = sdb2abcd(net_pad_2L.s_db, net_pad_2L.s_deg) # ABCD matrix for complete 2L structure used for pad deembedding (Pad - line - line - Pad)
+	S_L = sdb2abcd(net_struct_L.s_db, net_struct_L.s_deg) # ABCD matrix for complete L structure from which we want to remove the pad contribution (Pad - stuff - Pad)
+
+	abcd_L = [] # ABCD matrix structure for transmission line
+	
+	# iterating across each frequency point
+	for idx, M_L_mat in enumerate(M_L):
+		M_2L_mat = M_2L[idx]
+		
+		M_L_inv = la.inv(M_L_mat)
+		P_squared = la.inv( np.dot( M_L_inv, np.dot( M_2L_mat, M_L_inv) ) ) # PP = ( ML^-1 * M2L * ML^-1 )^-1
+		P = la.sqrtm(P_squared) # ABCD matrix of the pad (single pad) for this frequency
+		P_inv = la.inv(P)
+		
+		abcd_f = np.dot( P_inv, np.dot( S_L, P_inv) )
+		abcd_L.append(abcd_f)
+		
+	Sri_L = abcd2s(abcd_L, z0_probe, z0_probe)
+	(Sdb_L, Sdeg_L) = sri2sdb(Sri_L)
+	freq = net_pad_L.f
+	
+	net_L = rf.Network( f=freq*1e-9, s=Sri_L, z0=50)
+	
+
+	return (freq, Sri_L, abcd_L, Sdb_L, Sdeg_L, net_L)
+
+
+def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename, z0_probe=50):
+
+	net_pad_L = rf.Network(pad_L_s2p_filename, z0=z0_probe) # d
+	net_pad_2L = rf.Network(pad_2L_s2p_filename, z0=z0_probe) # c
+	net_struct_L = rf.Network(structure_L_s2p_filename, z0=z0_probe) # e # not needed
+	net_struct_2L = rf.Network(structure_2L_s2p_filename, z0=z0_probe) # f
+
+	# ABCD matrices
+	TP_2L = sdb2abcd(net_pad_2L.s_db, net_pad_2L.s_deg)
+	TP_L = sdb2abcd(net_pad_L.s_db, net_pad_L.s_deg)
+	TS_L = sdb2abcd(net_struct_L.s_db, net_struct_L.s_deg)
+	TS_2L = sdb2abcd(net_struct_2L.s_db, net_struct_2L.s_deg)
+
+
+	TL1 = []
+	TL2 = []
+	
+	for idx, tlp_mat in enumerate(TP_L):
+		tlpi_mat = la.inv(tlp_mat)
+		tp_2l_mat = TP_2L[idx]
+		
+		TP_L_inner_pre = np.dot( tlpi_mat, np.dot( tp_2l_mat, tlpi_mat ) ) # TLPI_MAT * TS_2L_MAT * TLPI_MAT matrix multiplication
+		TP_L_inner = la.inv(TP_L_inner_pre)
+		TP1 = la.sqrtm(TP_L_inner)
+		#TL1.append(TP1)
+		
+
+		TP1_inv = la.inv(TP1)
+		TS_2L_entry = TS_2L[idx]
+		TS_L_entry = TS_L[idx]
+		TL1_entry = np.dot( TP1_inv, np.dot( TS_L_entry,  TP1_inv ) )
+		TL1.append(TL1_entry)
+		
+		TL2_entry = np.dot( TP1_inv, np.dot( TS_2L_entry, TP1_inv ) )
+		TL2.append( TL2_entry )
+
+	abcd_L = TL1
+	abcd_2L = TL2
+	Sri_L = abcd2s(TL1, z0_probe, z0_probe)
+	Sri_2L = abcd2s(TL2, z0_probe, z0_probe)
+
+	(Sdb_L, Sdeg_L) = sri2sdb(Sri_L)
+	(Sdb_2L, Sdeg_2L) = sri2sdb(Sri_2L)
+	freq = net_pad_L.f
+	
+	net_L = rf.Network( f=freq*1e-9, s=Sri_L, z0=50)
+	net_2L = rf.Network( f=freq*1e-9, s=Sri_2L, z0=50)
+	
+
+	return (freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L, net_L, net_2L)
 
 
 def distributed_rlgc_from_abcd(length_m, freq, abcd_mat_array, z0_probe=50):
@@ -507,135 +637,6 @@ def get_pad_abcd(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50):
 	net_pad = rf.Network( f=freq*1e-9, s=Sri_pad, z0=50)
 	
 	return (freq, abcd_pad, abcd_pad_inv, Sri_pad, Sdb_pad, Sdeg_pad, net_pad)
-
-
-	
-def deembed_pads_from_measurement(abcd_pad_inv, abcd_dut, z0_probe = 50):
-	# (abcd_dut_deembedded, Sri_dut, Sdb_dut, Sdeg_dut) = deembed_pads_from_measurement(abcd_pad_inv, abcd_dut, z0_probe = 50)
-	
-	abcd_dut_deembedded = []
-	
-	for idx, Pinv in enumerate(abcd_pad_inv):
-		abcd_dut_deembedded_f = np.dot( Pinv, np.dot( abcd_dut, Pinv) )
-		abcd_dut_deembedded.append(abcd_dut_deembedded_f)
-		
-	Sri_dut = abcd2s(abcd_dut, z0_probe, z0_probe)
-	(Sdb_dut, Sdeg_dut) = sri2sdb(Sri_dut)
-	
-		
-	return (abcd_dut_deembedded, Sri_dut, Sdb_dut, Sdeg_dut)
-	
-	
-	
-def extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe = 50, method="distributed", skip_deembed=False):
-	# (freq, R, L, G, C) = extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe = 50, method="distributed")
-	
-	if not skip_deembed:
-		(abcd_dut_deembedded, Sri_dut, Sdb_dut, Sdeg_dut) = deembed_pads_from_measurement(abcd_pad_inv, abcd_dut, z0_probe)
-	else:
-		Sri_dut = abcd2s(abcd_dut, z0_probe, z0_probe)
-		(Sdb_dut, Sdeg_dut) = sri2sdb(Sri_dut)
-	
-	if method == "distributed":		
-			(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sdb_dut, Sdeg_dut, z0_probe)
-	elif method == "lumped":
-		net_dut = rf.Network( f=freq*1e-9, s=Sri_dut, z0=z0_probe)
-		(freq, R, L, G, C, Zdiff, Ycomm, net) = lumped_rlgc_from_Network(net_dut, z0_probe)
-	elif method == "distributed_abcd":
-		(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_abcd(length_m, freq, abcd_dut, z0_probe)
-	elif method == "distributed_ri":
-		(freq, R, L, G, C, gamma, attenuation, losstan, Zc) = distributed_rlgc_from_sdb(length_m, freq, Sri_dut, z0_probe)
-		
-	return (freq, R, L, G, C)
-	
-
-
-
-def l2l_deembed_mod(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, z0_probe=50):
-
-	net_pad_L = rf.Network(pad_L_s2p_filename, z0=z0_probe) # d
-	net_pad_2L = rf.Network(pad_2L_s2p_filename, z0=z0_probe) # c
-	net_struct_L = rf.Network(structure_L_s2p_filename, z0=z0_probe) # e
-
-	# ABCD matrices
-	M_L = sdb2abcd(net_pad_L.s_db, net_pad_L.s_deg) # ABCD matrix for complete L structure used for pad deembedding (Pad - line - Pad )
-	M_2L = sdb2abcd(net_pad_2L.s_db, net_pad_2L.s_deg) # ABCD matrix for complete 2L structure used for pad deembedding (Pad - line - line - Pad)
-	S_L = sdb2abcd(net_struct_L.s_db, net_struct_L.s_deg) # ABCD matrix for complete L structure from which we want to remove the pad contribution (Pad - stuff - Pad)
-
-	abcd_L = [] # ABCD matrix structure for transmission line
-	
-	# iterating across each frequency point
-	for idx, M_L_mat in enumerate(M_L):
-		M_2L_mat = M_2L[idx]
-		
-		M_L_inv = la.inv(M_L_mat)
-		P_squared = la.inv( np.dot( M_L_inv, np.dot( M_2L_mat, M_L_inv) ) ) # PP = ( ML^-1 * M2L * ML^-1 )^-1
-		P = la.sqrtm(P_squared) # ABCD matrix of the pad (single pad) for this frequency
-		P_inv = la.inv(P)
-		
-		abcd_f = np.dot( P_inv, np.dot( S_L, P_inv) )
-		abcd_L.append(abcd_f)
-		
-	Sri_L = abcd2s(abcd_L, z0_probe, z0_probe)
-	(Sdb_L, Sdeg_L) = sri2sdb(Sri_L)
-	freq = net_pad_L.f
-	
-	net_L = rf.Network( f=freq*1e-9, s=Sri_L, z0=50)
-	
-
-	return (freq, Sri_L, abcd_L, Sdb_L, Sdeg_L, net_L)
-
-
-def l2l_deembed(pad_L_s2p_filename, pad_2L_s2p_filename, structure_L_s2p_filename, structure_2L_s2p_filename, z0_probe=50):
-
-	net_pad_L = rf.Network(pad_L_s2p_filename, z0=z0_probe) # d
-	net_pad_2L = rf.Network(pad_2L_s2p_filename, z0=z0_probe) # c
-	net_struct_L = rf.Network(structure_L_s2p_filename, z0=z0_probe) # e # not needed
-	net_struct_2L = rf.Network(structure_2L_s2p_filename, z0=z0_probe) # f
-
-	# ABCD matrices
-	TP_2L = sdb2abcd(net_pad_2L.s_db, net_pad_2L.s_deg)
-	TP_L = sdb2abcd(net_pad_L.s_db, net_pad_L.s_deg)
-	TS_L = sdb2abcd(net_struct_L.s_db, net_struct_L.s_deg)
-	TS_2L = sdb2abcd(net_struct_2L.s_db, net_struct_2L.s_deg)
-
-
-	TL1 = []
-	TL2 = []
-	
-	for idx, tlp_mat in enumerate(TP_L):
-		tlpi_mat = la.inv(tlp_mat)
-		tp_2l_mat = TP_2L[idx]
-		
-		TP_L_inner_pre = np.dot( tlpi_mat, np.dot( tp_2l_mat, tlpi_mat ) ) # TLPI_MAT * TS_2L_MAT * TLPI_MAT matrix multiplication
-		TP_L_inner = la.inv(TP_L_inner_pre)
-		TP1 = la.sqrtm(TP_L_inner)
-		#TL1.append(TP1)
-		
-
-		TP1_inv = la.inv(TP1)
-		TS_2L_entry = TS_2L[idx]
-		TS_L_entry = TS_L[idx]
-		TL1_entry = np.dot( TP1_inv, np.dot( TS_L_entry,  TP1_inv ) )
-		TL1.append(TL1_entry)
-		
-		TL2_entry = np.dot( TP1_inv, np.dot( TS_2L_entry, TP1_inv ) )
-		TL2.append( TL2_entry )
-
-	abcd_L = TL1
-	abcd_2L = TL2
-	Sri_L = abcd2s(TL1, z0_probe, z0_probe)
-	Sri_2L = abcd2s(TL2, z0_probe, z0_probe)
-
-	(Sdb_L, Sdeg_L) = sri2sdb(Sri_L)
-	(Sdb_2L, Sdeg_2L) = sri2sdb(Sri_2L)
-	freq = net_pad_L.f
-	
-	net_L = rf.Network( f=freq*1e-9, s=Sri_L, z0=50)
-	net_2L = rf.Network( f=freq*1e-9, s=Sri_2L, z0=50)
-	
-
-	return (freq, Sri_L, Sri_2L, abcd_L, abcd_2L, Sdb_L, Sdeg_L, Sdb_2L, Sdeg_2L, net_L, net_2L)
 
 
 def write_net_db_deg( net, filename):
