@@ -19,11 +19,17 @@ def create_plot(freq_mat, data_mat, length_vec, color_keys, plot_name):
 		
 		pl.savefig(plot_name)
 
-pad_l_s2p_file= "test/500_5um_4.s2p"
-pad_2l_s2p_file= "test/1000_5um_4B.s2p"
+#pad_l_s2p_file= "test/500_5um_4.s2p"
+#pad_2l_s2p_file= "test/1000_5um_4B.s2p"
 
-pad_l_s2p_file="C:\Users\William\Dropbox\Research\Groups\I3DS\Projects\Wire Measurements\Will_Xuchen\W100\500_3um_1b.s2p"
-pad_2l_s2p_file="C:\Users\William\Dropbox\Research\Groups\I3DS\Projects\Wire Measurements\Will_Xuchen\W100\1000_3um_1b.s2p"
+base_dir = "test"
+base_dir = base_dir + "/"
+
+pad_l_s2p_file= "1000_5um_1b.csv"
+pad_2l_s2p_file= "2000_5um_1b.csv"
+
+pad_l_s2p_file= base_dir + pad_l_s2p_file
+pad_2l_s2p_file= base_dir + pad_2l_s2p_file
 
 z0= 50
 method_extract = "distributed"
@@ -36,27 +42,27 @@ C_mat = []
 
 color_keys = { 2000:'k', 1000:'b', 500:'c', 100:'g', 50:'r' }
 
-(freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec) = ex.extract_rlgc(pad_l_s2p_file, pad_2l_s2p_file, z0_probe=z0, method=method_extract, skip_plots=True, struct_s2p_name="test/*_3um_*.s2p")
-create_plot(freq_mat, R_mat, length_vec, color_keys, "R_plot_d500-5.pdf")
-#create_plot(freq_mat, L_mat, length_vec, color_keys, "L_plot.pdf")
-#create_plot(freq_mat, G_mat, length_vec, color_keys, "G_plot.pdf")
-#create_plot(freq_mat, C_mat, length_vec, color_keys, "C_plot.pdf")
+(freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec) = ex.extract_rlgc(pad_l_s2p_file, pad_2l_s2p_file, z0_probe=z0, method=method_extract, skip_plots=True, struct_csv_name=base_dir + "*_3um_*.csv", output_tag="_3um")
+create_plot(freq_mat, R_mat, length_vec, color_keys, "R_plot_3um.pdf")
 
-(freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec) = ex.extract_rlgc(pad_l_s2p_file, pad_2l_s2p_file, z0_probe=z0, method=method_extract, skip_plots=True, struct_s2p_name="test/*_3um_*.s2p", skip_deembed=True)
-create_plot(freq_mat, R_mat, length_vec, color_keys, "R_plot_no_deembed_d500-5.pdf")
+(freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec) = ex.extract_rlgc(pad_l_s2p_file, pad_2l_s2p_file, z0_probe=z0, method=method_extract, skip_plots=True, struct_csv_name=base_dir + "*_3um_*.csv", skip_deembed=True, output_tag="_3um_no_deembed")
+create_plot(freq_mat, R_mat, length_vec, color_keys, "R_plot_3um_no_deembed.pdf")
 
-#pad_l_s2p_file= "test/50_3um_1.s2p"
-#pad_2l_s2p_file= "test/100_3um_4.s2p"
+#(freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec) = ex.extract_rlgc(pad_l_s2p_file, pad_2l_s2p_file, z0_probe=z0, method=method_extract, skip_plots=True, struct_s2p_name=base_dir + "*_5um_*.s2p", output_tag="_5um")
+#create_plot(freq_mat, R_mat, length_vec, color_keys, "R_plot_5um.pdf")
 #
-#(freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec) = ex.extract_rlgc(pad_l_s2p_file, pad_2l_s2p_file, z0_probe=z0, method=method_extract, skip_plots=True, struct_s2p_name="test/*_3um_*.s2p")
-#create_plot(freq_mat, R_mat, length_vec, color_keys, "R_plot_d50-3.pdf")
-
-#(freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec) = ex.extract_rlgc(pad_l_s2p_file, pad_2l_s2p_file, z0_probe=z0, method=method_extract, skip_plots=True, struct_s2p_name="test/*_3um_*.s2p", skip_deembed=True)
-#create_plot(freq_mat, R_mat, length_vec, color_keys, "R_plot_no_deembed_d50-3.pdf")
-
-
-	
-	
-	
-	
-
+#(freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec) = ex.extract_rlgc(pad_l_s2p_file, pad_2l_s2p_file, z0_probe=z0, method=method_extract, skip_plots=True, struct_s2p_name=base_dir + "*.s2p", output_tag="_all")
+#create_plot(freq_mat, R_mat, length_vec, color_keys, "R_plot_all.pdf")
+#
+#(freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec) = ex.extract_rlgc(pad_l_s2p_file, pad_2l_s2p_file, z0_probe=z0, method=method_extract, skip_plots=True, struct_s2p_name=base_dir + "*_3um_*.s2p", skip_deembed=True, output_tag="_3um_no_deembed")
+#create_plot(freq_mat, R_mat, length_vec, color_keys, "R_plot_3um_no_deembed.pdf")
+#
+#(freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec) = ex.extract_rlgc(pad_l_s2p_file, pad_2l_s2p_file, z0_probe=z0, method=method_extract, skip_plots=True, struct_s2p_name=base_dir + "*_5um_*.s2p", skip_deembed=True, output_tag="_5um_no_deembed")
+#create_plot(freq_mat, R_mat, length_vec, color_keys, "R_plot_5um_no_deembed.pdf")
+#
+#(freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec) = ex.extract_rlgc(pad_l_s2p_file, pad_2l_s2p_file, z0_probe=z0, method=method_extract, skip_plots=True, struct_s2p_name=base_dir + "*.s2p", skip_deembed=True, output_tag="_all_no_deembed")
+#create_plot(freq_mat, R_mat, length_vec, color_keys, "R_plot_all_no_deembed.pdf")
+#
+#	
+#	
+#
