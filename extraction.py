@@ -1,11 +1,12 @@
 import numpy as np
-#import numpy.linalg as la
 import scipy.linalg as la
 import matplotlib.pyplot as pl
 import math
 import glob
 import argparse
 import rf_support as rfs
+import os
+import os.path
 
 
 def main():
@@ -22,7 +23,8 @@ def main():
 	
 	z0_probe = complex(args.z0_real, args.z0_imag)
 	(freq_mat, R_mat, L_mat, G_mat, C_mat) = extract_rlgc(args.pad_L_csv_file, args.pad_2L_csv_file, z0_probe, args.method, args.skip_plots, args.struct_csv_name, args.skip_deembed)
-	
+
+
 
 def extract_rlgc(pad_L_csv_filename, pad_2L_csv_filename, z0_probe=50.0, method="distributed", skip_plots=False, struct_csv_name="*.s2p", skip_deembed=False, output_tag = ""):
 
@@ -32,7 +34,10 @@ def extract_rlgc(pad_L_csv_filename, pad_2L_csv_filename, z0_probe=50.0, method=
 	print("Pad Deembedding file (L):  {0:s}".format(pad_L_csv_filename) )
 	print("Pad Deembedding file (2L): {0:s}".format(pad_2L_csv_filename) )
 	# Get pad deembedding parameters
-	(freq, abcd_pad, abcd_pad_inv, Sri_pad, Sdb_pad, Sdeg_pad) = get_pad_abcd(pad_L_csv_filename, pad_2L_csv_filename, z0_probe)
+	if not skip_deembed:
+		(freq, abcd_pad, abcd_pad_inv, Sri_pad, Sdb_pad, Sdeg_pad) = get_pad_abcd(pad_L_csv_filename, pad_2L_csv_filename, z0_probe)
+	else:
+		abcd_pad_inv = [] # dummy value needed for extract_rlcg_from_measurement call below
 	
 	print("Extracting RLGC using {0:s} method...".format(method))
 	freq_mat = []
@@ -123,6 +128,7 @@ def deembed_pads_from_measurement(abcd_pad_inv, abcd_dut, z0_probe = 50):
 	
 def extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_meas, z0_probe = 50, method="distributed", skip_deembed=False):
 	# (freq, R, L, G, C) = extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_dut, z0_probe = 50, method="distributed")
+	# if skip_deembed = True then abcd_pad_inv is not used -- just pass an empty array (or whatever)
 	
 	if not skip_deembed:
 		(abcd_dut, Sri_dut, Sdb_dut, Sdeg_dut) = deembed_pads_from_measurement(abcd_pad_inv, abcd_meas, z0_probe)

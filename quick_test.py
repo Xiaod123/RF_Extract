@@ -25,8 +25,8 @@ def create_plot(freq_mat, data_mat, length_vec, color_keys, plot_name):
 base_dir = "test"
 base_dir = base_dir + "/"
 
-pad_l_s2p_file= "1000_5um_1b.csv"
-pad_2l_s2p_file= "2000_5um_1b.csv"
+pad_l_s2p_file= "500_3um_1.csv"
+pad_2l_s2p_file= "1000_3um_1.csv"
 
 pad_l_s2p_file= base_dir + pad_l_s2p_file
 pad_2l_s2p_file= base_dir + pad_2l_s2p_file
