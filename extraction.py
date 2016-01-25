@@ -24,7 +24,21 @@ def main():
 	z0_probe = complex(args.z0_real, args.z0_imag)
 	(freq_mat, R_mat, L_mat, G_mat, C_mat) = extract_rlgc(args.pad_L_csv_file, args.pad_2L_csv_file, z0_probe, args.method, args.skip_plots, args.struct_csv_name, args.skip_deembed)
 
+# [FIX] - NOT FULLY IMPLEMENTED!
+# [FIX] - Need to walk through directory structure and properly process all data
+# Need to implement function to process filenames and do deembedding and everything
+def automatic_extract():
+	# assumes calling from a directory containing a number of sub-directories of data
+	# top directory contains folders for each condition to process
+	# next level down contains one folder:	1) deembed, which contains two CSV files for pad de-embedding (one with an L structure and wone with a 2L structure)
+	#										2) outside of deembed, a bunch of CSV files with actual data
+	# The two files in deembed will be used for pad deembedding
+	# if deembed is missing or empty, no deembedding will be performed
 
+	for root, dirs, files in os.walk(os.getcwd()):
+		if "deembed" in dirs:
+			(file_l, file_2l) = process_filenames(files)
+	
 
 def extract_rlgc(pad_L_csv_filename, pad_2L_csv_filename, z0_probe=50.0, method="distributed", skip_plots=False, struct_csv_name="*.s2p", skip_deembed=False, output_tag = ""):
 
