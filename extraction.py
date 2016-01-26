@@ -24,23 +24,9 @@ def main():
 	z0_probe = complex(args.z0_real, args.z0_imag)
 	(freq_mat, R_mat, L_mat, G_mat, C_mat) = extract_rlgc(args.pad_L_csv_file, args.pad_2L_csv_file, z0_probe, args.method, args.skip_plots, args.struct_csv_name, args.skip_deembed)
 
-# [FIX] - NOT FULLY IMPLEMENTED!
-# [FIX] - Need to walk through directory structure and properly process all data
-# Need to implement function to process filenames and do deembedding and everything
-def automatic_extract():
-	# assumes calling from a directory containing a number of sub-directories of data
-	# top directory contains folders for each condition to process
-	# next level down contains one folder:	1) deembed, which contains two CSV files for pad de-embedding (one with an L structure and wone with a 2L structure)
-	#										2) outside of deembed, a bunch of CSV files with actual data
-	# The two files in deembed will be used for pad deembedding
-	# if deembed is missing or empty, no deembedding will be performed
-
-	for root, dirs, files in os.walk(os.getcwd()):
-		if "deembed" in dirs:
-			(file_l, file_2l) = process_filenames(files)
 	
 
-def extract_rlgc(pad_L_csv_filename, pad_2L_csv_filename, z0_probe=50.0, method="distributed", skip_plots=False, struct_csv_name="*.s2p", skip_deembed=False, output_tag = ""):
+def extract_rlgc(pad_L_csv_filename, pad_2L_csv_filename, z0_probe=complex(50.0,0), method="distributed", skip_plots=False, struct_csv_name="*.csv", skip_deembed=False, output_tag = ""):
 
 	file_list = glob.glob(struct_csv_name)
 	
@@ -162,7 +148,7 @@ def extract_rlcg_from_measurement( freq, length_m, abcd_pad_inv, abcd_meas, z0_p
 	return (freq, R, L, G, C)
 	
 	
-def distributed_rlgc_from_sdb(length_m, freq, Sdb, Sdeg, z0_probe=50):
+def distributed_rlgc_from_sdb(length_m, freq, Sdb, Sdeg, z0_probe=complex(50,0)):
 	# length_m:	(m)	Length of structure being measured
 	# s2p_filename: (str)	s2p filename
 	# z0_probe:	(Ohms)	Impedance of network analyzer/probes. 50 Ohm default.
@@ -190,7 +176,7 @@ def distributed_rlgc_from_sdb(length_m, freq, Sdb, Sdeg, z0_probe=50):
 
 	return ( freq, R, L, G, C, gamma, attenuation, losstan, Zc )
 
-def lumped_rlgc_from_Network(net, z0_probe=50):
+def lumped_rlgc_from_Network(net, z0_probe=complex(50,0)):
 	# s2p_filename: (str)	s2p filename
 	# z0_probe:	(Ohms)	Impedance of network analyzer/probes. 50 Ohm default.
 
@@ -216,7 +202,7 @@ def lumped_rlgc_from_Network(net, z0_probe=50):
 	return (freq, R, L, G, C, Zdiff, Ycomm, net)
 
 
-def get_pad_abcd(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=50):
+def get_pad_abcd(pad_L_s2p_filename, pad_2L_s2p_filename, z0_probe=complex(50,0)):
 	
 	(freq_L, Sdb_L, Sdeg_L) = rfs.get_sdb_from_vna_csv(pad_L_s2p_filename)
 	(freq_2L, Sdb_2L, Sdeg_2L) = rfs.get_sdb_from_vna_csv(pad_2L_s2p_filename)
