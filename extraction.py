@@ -19,10 +19,11 @@ def main():
 	parser.add_argument("--z0_imag", type=float, default=0, help="Imaginary portion of probe impedance. Default is 0 Ohms (Default impedance is 50 + 0j)")
 	parser.add_argument("--skip_plots", action="store_true", default=False, help="Skip plotting for faster data extraction")
 	parser.add_argument("--method", default="distributed", choices=["distributed", "lumped"], help="Type of RLGC extraction to perform. distributed (default) -- treats structure as transmission line and extracts from S in DB/DEG form. lumped -- treats structure as lumped element.") 
+	parser.add_argument("--tag", default="", help="Output file tag")
 	args = parser.parse_args()
 	
 	z0_probe = complex(args.z0_real, args.z0_imag)
-	(freq_mat, R_mat, L_mat, G_mat, C_mat) = extract_rlgc(args.pad_L_csv_file, args.pad_2L_csv_file, z0_probe, args.method, args.skip_plots, args.struct_csv_name, args.skip_deembed)
+	(freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec) = extract_rlgc(args.pad_L_csv_file, args.pad_2L_csv_file, z0_probe, args.method, args.skip_plots, args.struct_csv_name, args.skip_deembed, args.tag)
 
 	
 
