@@ -20,16 +20,19 @@ def main():
 	parser.add_argument("--skip_plots", action="store_true", default=False, help="Skip plotting for faster data extraction")
 	parser.add_argument("--method", default="distributed", choices=["distributed", "lumped"], help="Type of RLGC extraction to perform. distributed (default) -- treats structure as transmission line and extracts from S in DB/DEG form. lumped -- treats structure as lumped element.") 
 	parser.add_argument("--tag", default="", help="Output file tag")
+	parser.add_argument("--output_dir", default="extract", help="Directory to store outputs")
 	args = parser.parse_args()
 	
 	z0_probe = complex(args.z0_real, args.z0_imag)
-	(freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec) = extract_rlgc(args.pad_L_csv_file, args.pad_2L_csv_file, z0_probe, args.method, args.skip_plots, args.struct_csv_name, args.skip_deembed, args.tag)
+	(freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec) = extract_rlgc(args.pad_L_csv_file, args.pad_2L_csv_file, z0_probe, args.method, args.skip_plots, args.struct_csv_name, args.skip_deembed, args.tag, args.output_dir)
 
 	
 
-def extract_rlgc(pad_L_csv_filename, pad_2L_csv_filename, z0_probe=complex(50.0,0), method="distributed", skip_plots=False, struct_csv_name="*.csv", skip_deembed=False, output_tag = ""):
+def extract_rlgc(pad_L_csv_filename, pad_2L_csv_filename, z0_probe=complex(50.0,0), method="distributed", skip_plots=False, struct_csv_name="*.csv", skip_deembed=False, output_tag = "", output_dir="extract"):
 
 	file_list = glob.glob(struct_csv_name)
+	if not os.path.exists(output_dir):
+		os.makedirs(output_dir)
 	
 	
 	print("Pad Deembedding file (L):  {0:s}".format(pad_L_csv_filename) )
@@ -89,17 +92,16 @@ def extract_rlgc(pad_L_csv_filename, pad_2L_csv_filename, z0_probe=complex(50.0,
 		length_vec.append(trace_length_um)
 		width_vec.append(trace_width_um)
 
-
-		write_rlgc(freq, R, L, G, C, rlgc_filename)
+		write_rlgc(freq, R, L, G, C, rlgc_filename, output_dir)
 		
 		if not skip_plots:
-			plot_rlgc(freq, R, L, G, C, structure_string)
-			plot_s_params(freq, Sdb_dut, Sdeg_dut, structure_string)
+			plot_rlgc(freq, R, L, G, C, structure_string + output_tag, output_dir)
+			plot_s_params(freq, Sdb_dut, Sdeg_dut, structure_string + output_tag, output_dir)
 	
-	write_data(freq_mat[0], R_mat, name_vec, "R" + output_tag + ".csv")
-	write_data(freq_mat[0], L_mat, name_vec, "L" + output_tag + ".csv")
-	write_data(freq_mat[0], C_mat, name_vec, "C" + output_tag + ".csv")
-	write_data(freq_mat[0], G_mat, name_vec, "G" + output_tag + ".csv")
+	write_data(freq_mat[0], R_mat, name_vec, "R" + output_tag + ".csv", output_dir)
+	write_data(freq_mat[0], L_mat, name_vec, "L" + output_tag + ".csv", output_dir)
+	write_data(freq_mat[0], C_mat, name_vec, "C" + output_tag + ".csv", output_dir)
+	write_data(freq_mat[0], G_mat, name_vec, "G" + output_tag + ".csv", output_dir)
 			
 	return (freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec)
 	
@@ -262,7 +264,8 @@ def write_s_db_deg( sdb, sdeg, freq, filename):
 		outfile.write(outstr)
 
 
-def write_rlgc(freq, R, L, G, C, filename):
+def write_rlgc(freq, R, L, G, C, filename, output_dir=""):
+	filename = os.path.join(output_dir, filename)
 	outfile = open(filename, 'w')
 	
 	for idx, f in enumerate(freq):
@@ -275,7 +278,9 @@ def write_rlgc(freq, R, L, G, C, filename):
 		outfile.write(outstr)
 		
 
-def write_data( freq, data_mat, name_mat, filename):
+def write_data( freq, data_mat, name_mat, filename, output_dir=""):
+
+	filename = os.path.join(output_dir, filename)
 	outfile = open(filename, 'w')
 	
 	outstr = ",".join(name_mat)
@@ -290,7 +295,7 @@ def write_data( freq, data_mat, name_mat, filename):
 	
 		
 
-def plot_rlgc(freq, R, L, G, C, structure_string):
+def plot_rlgc(freq, R, L, G, C, structure_string, output_dir=""):
 	freq_ghz = freq/1e9
 	
 	pl.figure(1, figsize=(9,13) )
@@ -323,11 +328,13 @@ def plot_rlgc(freq, R, L, G, C, structure_string):
 	pl.ylabel("C (F/m)")
 	ax4.ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
 	
-	pl.savefig(structure_string + "_RLGC.pdf")
+	filename = structure_string + "_RLGC.pdf"
+	filename = os.path.join(output_dir, filename)
+	pl.savefig()
 	
 	
 	
-def plot_s_params(freq, Sdb, Sdeg, structure_string):
+def plot_s_params(freq, Sdb, Sdeg, structure_string, output_dir=""):
 	freq_ghz = freq/1e9
 	
 	S11_db = np.zeros( (len(Sdb)) )
@@ -371,7 +378,9 @@ def plot_s_params(freq, Sdb, Sdeg, structure_string):
 	pl.grid()
 	pl.legend()
 	
-	pl.savefig(structure_string + "_Sdb.pdf")
+	filename = structure_string + "_Sdb.pdf"
+	filename = os.path.join(output_dir, filename)
+	pl.savefig(filename)
 	
 	pl.figure(2)
 	pl.clf()
@@ -393,7 +402,9 @@ def plot_s_params(freq, Sdb, Sdeg, structure_string):
 	pl.grid()
 	pl.legend()
 	
-	pl.savefig(structure_string + "_Sdeg.pdf")
+	filename = structure_string + "_Sdeg.pdf"
+	filename = os.path.join(output_dir, filename)
+	pl.savefig(filename)
 	
 		
 
