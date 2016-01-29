@@ -105,7 +105,14 @@ def extract_rlgc(pad_L_csv_filename, pad_2L_csv_filename, z0_probe=complex(50.0,
 
 	freq_min = 1e10
 	freq_max = 2e20
-	write_averaged_data_freq_range(freq_mat[0], freq_min, freq_max, R_mat, length_vec, "R" + output_tag + "_avg" + ".csv", output_dir)
+
+	path_split = os.path.split(os.getcwd())
+	cur_folder = path_split[-1]
+	header_tag = cur_folder + output_tag
+	write_averaged_data_freq_range(freq_mat[0], freq_min, freq_max, R_mat, length_vec, cur_folder + "_R" + output_tag + "_avg" + ".csv", output_dir, header_tag)
+
+	output_dir = "C:\\Users\\William\\Dropbox\\Research\\Groups\\I3DS\\Projects\\Wire Measurements\\Will_Xuchen\\R_avg"
+	write_averaged_data_freq_range(freq_mat[0], freq_min, freq_max, R_mat, length_vec, cur_folder + "_R" + output_tag + "_avg" + ".csv", output_dir, header_tag)
 			
 	return (freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec)
 	
@@ -297,7 +304,7 @@ def write_data( freq, data_mat, name_mat, filename, output_dir=""):
 		data_str = ",".join(data_str_vec)
 		outfile.write("{0:.8g},{1:s}\n".format(f, data_str) )
 
-def write_averaged_data_freq_range(freq, freq_min, freq_max, data_mat, length_vec, filename, output_dir=""):
+def write_averaged_data_freq_range(freq, freq_min, freq_max, data_mat, length_vec, filename, output_dir="", header_tag=""):
 
 	filename = os.path.join(output_dir, filename)
 	outfile = open(filename, 'w')
@@ -309,7 +316,7 @@ def write_averaged_data_freq_range(freq, freq_min, freq_max, data_mat, length_ve
 		data_avg_vec[idx] = data_avg
 
 	sort_inds = np.argsort(length_vec)
-	outfile.write("Length (um),R_pul (Ohm/m)\n")
+	outfile.write("Length (um),{0:s}\n".format(header_tag))
 
 	for idx in sort_inds:
 		outfile.write("{0:d},{1:.8g}\n".format(length_vec[idx], data_avg_vec[idx]) )
