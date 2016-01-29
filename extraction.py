@@ -96,10 +96,10 @@ def extract_rlgc(pad_L_csv_filename, pad_2L_csv_filename, z0_probe=complex(50.0,
 			plot_rlgc(freq, R, L, G, C, structure_string)
 			plot_s_params(freq, Sdb_dut, Sdeg_dut, structure_string)
 	
-	write_data(freq_mat[0], R_mat, name_vec, "R.csv")
-	write_data(freq_mat[0], L_mat, name_vec, "L.csv")
-	write_data(freq_mat[0], C_mat, name_vec, "G.csv")
-	write_data(freq_mat[0], G_mat, name_vec, "C.csv")
+	write_data(freq_mat[0], R_mat, name_vec, "R" + output_tag + ".csv")
+	write_data(freq_mat[0], L_mat, name_vec, "L" + output_tag + ".csv")
+	write_data(freq_mat[0], C_mat, name_vec, "C" + output_tag + ".csv")
+	write_data(freq_mat[0], G_mat, name_vec, "G" + output_tag + ".csv")
 			
 	return (freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec)
 	
