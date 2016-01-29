@@ -102,6 +102,10 @@ def extract_rlgc(pad_L_csv_filename, pad_2L_csv_filename, z0_probe=complex(50.0,
 	write_data(freq_mat[0], L_mat, name_vec, "L" + output_tag + ".csv", output_dir)
 	write_data(freq_mat[0], C_mat, name_vec, "C" + output_tag + ".csv", output_dir)
 	write_data(freq_mat[0], G_mat, name_vec, "G" + output_tag + ".csv", output_dir)
+
+	freq_min = 1e10
+	freq_max = 2e20
+	write_averaged_data_freq_range(freq_mat[0], freq_min, freq_max, R_mat, length_vec, "R" + output_tag + "_avg" + ".csv", output_dir)
 			
 	return (freq_mat, R_mat, L_mat, G_mat, C_mat, name_vec, length_vec, width_vec)
 	
@@ -292,7 +296,24 @@ def write_data( freq, data_mat, name_mat, filename, output_dir=""):
 		data_str_vec = [ "{0:.8g}".format(el) for el in data_mat[:,idx] ]
 		data_str = ",".join(data_str_vec)
 		outfile.write("{0:.8g},{1:s}\n".format(f, data_str) )
-	
+
+def write_averaged_data_freq_range(freq, freq_min, freq_max, data_mat, length_vec, filename, output_dir=""):
+
+	filename = os.path.join(output_dir, filename)
+	outfile = open(filename, 'w')
+
+	data_avg_vec = np.zeros( (len(length_vec)), dtype=float)
+
+	for idx, length in enumerate(length_vec):
+		data_avg = np.average( data_mat[idx][ (freq >=freq_min) & (freq <=freq_max) ] )
+		data_avg_vec[idx] = data_avg
+
+	sort_inds = np.argsort(length_vec)
+	outfile.write("Length (um),R_pul (Ohm/m)\n")
+
+	for idx in sort_inds:
+		outfile.write("{0:d},{1:.8g}\n".format(length_vec[idx], data_avg_vec[idx]) )
+
 		
 
 def plot_rlgc(freq, R, L, G, C, structure_string, output_dir=""):
